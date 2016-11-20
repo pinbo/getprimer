@@ -38,6 +38,9 @@
 # from getprimer.v1.4withpaircheck.py
 # now input file only needs to provide the raw sequences
 
+# 11/20/2016 v1.6
+# added primer score and primer pair score
+# and a few other changes
 ### Imported
 from subprocess import call
 
@@ -54,15 +57,23 @@ from subprocess import call
 # ["Chr-B2.1", "Chr-D2.1", "Chr-A2.1"]
 
 seqfile = "sequence.fa" # CHANGE HERE
-targets = ["Chr-A2.2", "Chr-D2.2"] # CHAGE HERE
-groupname = "Chr-2.2AD" # CHANGE HERE
-rangelimit = 3 # only find difference in the first 3 nt from 3' for each primer
+targets = ["Chr-D2.2", "Chr-A2.2"] # CHAGE HERE
+groupname = "Chr2.2AD" # CHANGE HERE
+primer_pair_score_threshold = 200.0
+primer_pair_compl_any_threshold = 1.0
+primer_pair_compl_end_threshold = 1.0
+product_min = 50
+product_opt = 100
+product_max = 150
+muscle_path = "./bin/muscle"
+primer3_path = "./bin/primer3_core"
+rangelimit = 10 # only find difference in the first a few nt from 3' end of each primer
 outfile = open('selected_primers_for_' + groupname + ".txt", 'w') # output file
 #########################
 # STEP 0: create alignment file and primer3output file
 
 RawAlignFile = "alignment_raw.fa"
-alignmentcmd = "./bin/muscle -in " + seqfile + " -out " + RawAlignFile + " -quiet"
+alignmentcmd = muscle_path + " -in " + seqfile + " -out " + RawAlignFile + " -quiet"
 print "Alignment command: ", alignmentcmd
 call(alignmentcmd, shell=True)
 
@@ -174,13 +185,15 @@ p3input = open(primer3input, 'w')
 for k, v in fasta.items():
 	line1 = "SEQUENCE_ID=" + k
 	line2 = "SEQUENCE_TEMPLATE=" + v.replace("-","") # remove "-" in the alignment seq
-	line3 = "="
-	p3input.write("\n".join([line1, line2, line3]) + "\n")
+	line3 = "PRIMER_PRODUCT_OPT_SIZE=" + str(product_opt)
+	line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
+	line5 = "="
+	p3input.write("\n".join([line1, line2, line3, line4, line5]) + "\n")
 p3input.close()
 
 # primer3 output file
 primer3output = "primer3.output"
-p3cmd = "./bin/primer3_core -default_version=2 -format_output -p3_settings_file=./primer3web_v4_JZ.txt -output=" + primer3output + " " + primer3input
+p3cmd = primer3_path + " -default_version=2 -format_output -p3_settings_file=./primer3web_v4_JZ.txt -output=" + primer3output + " " + primer3input
 print "Primer3 command 1st time: ", p3cmd
 call(p3cmd, shell=True)
 
@@ -214,15 +227,17 @@ class Primers(object):
 		self.difthree = "NO" # whether 3' site is different
 		self.difall = "NO" # whether one primer is enough to differ all the rest
 		self.difnum = 0 # how many sequences can be differentiated within the rangelimit
+		self.score = 0.0 # score based on number of different sites and differ position
+		self.difsitedict = {} # difsite in each different position (just like 2-dim array): self.difsite would be sum of cols of self.difsitedict
 
 	def __len__(self):
 		"""Length of the primer"""
 		return self.length
 	def formatprimer(self):
 		if self.direction == "LEFT_PRIMER":
-			formatout = "\t".join(str(x) for x in [self.name, self.direction, self.start, self.end, self.length, productsize, self.tm, self.gc, self.anys, self.three, self.hairpin, self.nvar, self.difthree, self.difall, self.difnum, self.seq, ""])
+			formatout = "\t".join(str(x) for x in [self.name, self.direction, self.start, self.end, self.length, self.tm, self.gc, self.anys, self.three, self.hairpin, self.nvar, self.difthree, self.difall, self.difnum, self.score, self.seq, ""])
 		else:
-			formatout = "\t".join(str(x) for x in [self.name, self.direction, self.start, self.end, self.length, productsize, self.tm, self.gc, self.anys, self.three, self.hairpin, self.nvar, self.difthree, self.difall, self.difnum, ReverseComplement(self.seq), self.seq])
+			formatout = "\t".join(str(x) for x in [self.name, self.direction, self.start, self.end, self.length, self.tm, self.gc, self.anys, self.three, self.hairpin, self.nvar, self.difthree, self.difall, self.difnum, self.score, ReverseComplement(self.seq), self.seq])
 		return(formatout)
 
 class PrimerPair(object):
@@ -235,6 +250,7 @@ class PrimerPair(object):
 		self.compl_end = "NA"
 		self.penalty = "NA"
 		self.product_size = 0
+		self.score = 0 # sum of scores of left and right primers
 
 # parse primer3 output file
 # use 0-based primer3 output
@@ -295,7 +311,11 @@ for pp in leftprimers:
 	if exclude == 0: # only if the primer does not have any exlude sites
 		for var in variation:
 			#if set([var]) < set(range(pp.start-1, pp.end)):
-			if set(var) < set(range(pp.end - rangelimit, pp.end)):
+			if set(var) < set(range(pp.end - rangelimit, pp.end)): # pp.start and pp.end is 1-based, not 0-based
+				difpos = pp.end - var[-1] # position of different site from the end: for calculating score
+				difnum = sum(i > 0 for i in diffarray[var]) # how many sequences this difpos can differ
+				pp.score += (difnum / len(ids) + 1) * 100 / difpos # consider both the difpos and how many it can differ
+				pp.difsitedict[difpos] = diffarray[var]
 				pp.nvar += 1
 				if pp.difsite:
 					pp.difsite = [sum(x) for x in zip(pp.difsite, diffarray[var])]
@@ -335,6 +355,10 @@ for pp in rightprimers:
 		for var in variation:
 			#if set([var]) < set(range(pp.start-1, pp.end)):
 			if set(var) < set(range(pp.start-1, pp.start-1 + rangelimit)):
+				difpos = var[0] - pp.start + 2  # position of different site from the end: for calculating score
+				difnum = sum(i > 0 for i in diffarray[var]) # how many sequences this difpos can differ
+				pp.score += (difnum / len(ids) + 1) * 100 / difpos # consider both the difpos and how many it can differ
+				pp.difsitedict[difpos] = diffarray[var]
 				pp.nvar += 1
 				if pp.difsite:
 					pp.difsite = [sum(x) for x in zip(pp.difsite, diffarray[var])]
@@ -371,14 +395,28 @@ tempin = 'temp_primer_pair_check_input_' + groupname + ".txt"
 p3temp = open(tempin, 'w') # output file
 seqtemplate = fasta[mainID].replace("-","") # remove "-" in the alignment seq
 primernumber = 0
-primerpairs = {}
+primerpairs = {} # all the pairs with the right size and Tm differences
+
+## define function to merge two dictionaries of difsite
+def merge_dict(dx, dy):
+	newdict = {}
+	for key in dx.keys() + dy.keys():
+		if key in dx:
+			if key in dy:
+				newdict[key] = [sum(x) for x in zip(dx[key], dy[key])]
+			else:
+				newdict[key] = dx[key]
+		else:
+			newdict[key] = dy[key]
+	return(newdict)
+
 for pl in newleftprimers:
 	for pr in newrightprimers:
 		alldifsite = [sum(x) for x in zip(pl.difsite, pr.difsite)]
 		if min(alldifsite) > 0 and pl.end < pr.start and abs(pl.tm - pr.tm) < 1.0:
 			#print primernumber
 			productsize = pr.end - pl.start + 1
-			if productsize >= 50 and productsize <= 150:
+			if productsize >= product_min and productsize <= product_max:
 				primernumber += 1
 				ppname = str(primernumber)
 				pp = PrimerPair()
@@ -386,21 +424,27 @@ for pl in newleftprimers:
 				pp.left = pl
 				pp.right = pr
 				pp.product_size = productsize
-				primerpairs[ppname] = pp
-				line1 = "SEQUENCE_ID=" + ppname
-				line2 = "PRIMER_TASK=check_primers"
-				line3 = "PRIMER_PRODUCT_OPT_SIZE=100"
-				line4 = "PRIMER_PRODUCT_SIZE_RANGE=50-150"
-				line5 = "SEQUENCE_TEMPLATE=" + seqtemplate
-				line6 =  "SEQUENCE_PRIMER=" + pl.seq
-				line7 = "SEQUENCE_PRIMER_REVCOMP=" + ReverseComplement(pr.seq)
-				line8 = "="
-				p3temp.write("\n".join([line1, line2, line3, line4, line5, line6, line7, line8]) + "\n")
+				# get score below
+				diffmerge = merge_dict(pl.difsitedict, pr.difsitedict)
+				for k, v in diffmerge.items():
+					difnum = sum(i > 0 for i in v) # how many sequences this difpos can differ
+					pp.score += (difnum / len(ids) + 1) * 100 / k
+				if pp.score >= primer_pair_score_threshold:
+					primerpairs[ppname] = pp
+					line1 = "SEQUENCE_ID=" + ppname
+					line2 = "PRIMER_TASK=check_primers"
+					line3 = "PRIMER_PRODUCT_OPT_SIZE=100"
+					line4 = "PRIMER_PRODUCT_SIZE_RANGE=50-150"
+					line5 = "SEQUENCE_TEMPLATE=" + seqtemplate
+					line6 =  "SEQUENCE_PRIMER=" + pl.seq
+					line7 = "SEQUENCE_PRIMER_REVCOMP=" + ReverseComplement(pr.seq)
+					line8 = "="
+					p3temp.write("\n".join([line1, line2, line3, line4, line5, line6, line7, line8]) + "\n")
 
 p3temp.close()
 ## use primer3 to check the primer pair quality
 tempout = "temp_primer_pair_test_out_" + groupname + ".txt"
-p3cmd = "./bin/primer3_core -default_version=2 -p3_settings_file=./primer3web_v4_JZ.txt -output=" + " ".join([tempout, tempin])
+p3cmd = primer3_path + " -default_version=2 -p3_settings_file=./primer3web_v4_JZ.txt -output=" + " ".join([tempout, tempin])
 print "Primer3 command 2nd time: ", p3cmd
 call(p3cmd, shell=True)
 
@@ -418,15 +462,15 @@ with open(tempout) as infile:
 		if "PRIMER_PAIR_0_COMPL_END" in line:
 			primerpairs[seqid].compl_end = line.split("=")[1]
 
-outfile.write("index\tprimerID\ttype\tstart\tend\tlength\tproduct_size\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\n")
+outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\tprimerpair_score\n")
 
 #for pp in primerpairs:
 for np, pp in primerpairs.iteritems():
-	if pp.compl_any != "NA":
+	if pp.compl_any != "NA" and float(pp.compl_any) <= primer_pair_compl_any_threshold and float(pp.compl_end) <= primer_pair_compl_end_threshold:
 		pl = pp.left
 		pr = pp.right
-		outfile.write("\t".join([pp.name, pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end]) + "\n")
-		outfile.write("\t".join([pp.name, pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end]) + "\n")
+		outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score)]) + "\n")
+		outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score)]) + "\n")
 
 
 
@@ -494,3 +538,6 @@ print "Right primer that across border:", primernumber
 
 #########
 outfile.close()
+
+## remove all tempotary files
+call("rm temp_*", shell=True)
