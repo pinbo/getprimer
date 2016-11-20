@@ -182,6 +182,7 @@ for i in range(alignlen):
 # primer3 inputfile
 primer3input = "primer3.input"
 p3input = open(primer3input, 'w')
+"""
 for k, v in fasta.items():
 	line1 = "SEQUENCE_ID=" + k
 	line2 = "SEQUENCE_TEMPLATE=" + v.replace("-","") # remove "-" in the alignment seq
@@ -189,6 +190,15 @@ for k, v in fasta.items():
 	line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
 	line5 = "="
 	p3input.write("\n".join([line1, line2, line3, line4, line5]) + "\n")
+"""
+# I only need to use the output from the first target
+line1 = "SEQUENCE_ID=" + mainID
+line2 = "SEQUENCE_TEMPLATE=" + fasta[mainID].replace("-","") # remove "-" in the alignment seq
+line3 = "PRIMER_PRODUCT_OPT_SIZE=" + str(product_opt)
+line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
+line5 = "="
+p3input.write("\n".join([line1, line2, line3, line4, line5]) + "\n")
+
 p3input.close()
 
 # primer3 output file
