@@ -41,6 +41,11 @@
 # 11/20/2016 v1.6
 # added primer score and primer pair score
 # and a few other changes
+
+# 11/21/2016 v1.7
+# scored now is (diffnumber*100/number_of_other_sequence + 100) / (dif_position + 1), so the dividing is from 2.
+
+
 ### Imported
 from subprocess import call
 
@@ -59,7 +64,7 @@ from subprocess import call
 seqfile = "sequence.fa" # CHANGE HERE
 targets = ["Chr-D2.2", "Chr-A2.2"] # CHAGE HERE
 groupname = "Chr2.2AD" # CHANGE HERE
-primer_pair_score_threshold = 200.0
+primer_pair_score_threshold = 100.0
 primer_pair_compl_any_threshold = 1.0
 primer_pair_compl_end_threshold = 1.0
 product_min = 50
@@ -324,7 +329,7 @@ for pp in leftprimers:
 			if set(var) < set(range(pp.end - rangelimit, pp.end)): # pp.start and pp.end is 1-based, not 0-based
 				difpos = pp.end - var[-1] # position of different site from the end: for calculating score
 				difnum = sum(i > 0 for i in diffarray[var]) # how many sequences this difpos can differ
-				pp.score += (difnum / len(ids) + 1) * 100 / difpos # consider both the difpos and how many it can differ
+				pp.score += (difnum / len(ids) + 1) * 100 / (difpos+1) # consider both the difpos and how many it can differ
 				pp.difsitedict[difpos] = diffarray[var]
 				pp.nvar += 1
 				if pp.difsite:
@@ -367,7 +372,7 @@ for pp in rightprimers:
 			if set(var) < set(range(pp.start-1, pp.start-1 + rangelimit)):
 				difpos = var[0] - pp.start + 2  # position of different site from the end: for calculating score
 				difnum = sum(i > 0 for i in diffarray[var]) # how many sequences this difpos can differ
-				pp.score += (difnum / len(ids) + 1) * 100 / difpos # consider both the difpos and how many it can differ
+				pp.score += (difnum / len(ids) + 1) * 100 / (difpos + 1) # consider both the difpos and how many it can differ
 				pp.difsitedict[difpos] = diffarray[var]
 				pp.nvar += 1
 				if pp.difsite:
@@ -438,7 +443,7 @@ for pl in newleftprimers:
 				diffmerge = merge_dict(pl.difsitedict, pr.difsitedict)
 				for k, v in diffmerge.items():
 					difnum = sum(i > 0 for i in v) # how many sequences this difpos can differ
-					pp.score += (difnum / len(ids) + 1) * 100 / k
+					pp.score += (difnum / len(ids) + 1) * 100 / (k + 1)
 				if pp.score >= primer_pair_score_threshold:
 					primerpairs[ppname] = pp
 					line1 = "SEQUENCE_ID=" + ppname
