@@ -44,12 +44,22 @@
 
 # 11/21/2016 v1.7
 # scored now is (diffnumber*100/number_of_other_sequence + 100) / (dif_position + 1), so the dividing is from 2.
-
+# added command line options
 
 ### Imported
 from subprocess import call
+import getopt, sys, os
 
-
+usage="""
+getprimer.py 
+	-i <sequence.fa>
+	-p <GetPrimer path> 
+	-s <product min size> 
+	-l <product max size> 
+	-g <seqID1,seqID2> 
+	-r <range limit: where the differences should be in the primer from 3' end, default 10>
+	-o <output file name>"
+"""
 
 
 #########################
@@ -63,24 +73,66 @@ from subprocess import call
 
 seqfile = "sequence.fa" # CHANGE HERE
 targets = ["Chr-D2.2", "Chr-A2.2"] # CHAGE HERE
-groupname = "Chr2.2AD" # CHANGE HERE
 primer_pair_score_threshold = 100.0
 primer_pair_compl_any_threshold = 1.0
 primer_pair_compl_end_threshold = 1.0
 product_min = 50
 product_opt = 100
 product_max = 150
-muscle_path = "./bin/muscle"
-primer3_path = "./bin/primer3_core"
+getprimer_path = "~/Research/Software/git/github/getprimer"
 rangelimit = 10 # only find difference in the first a few nt from 3' end of each primer
-outfile = open('selected_primers_for_' + groupname + ".txt", 'w') # output file
+out = ""
+msa = 1 # whether need to do multiple sequence alignment
+# read command line options
+print "Parsing command line optinos"
+
+try:
+	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:h", ["help"])
+except getopt.GetoptError as err:
+	# print help information and exit:
+	print str(err)  # will print something like "option -a not recognized"
+	print usage
+	sys.exit(2)
+for o, a in opts:
+	if o == "-i":
+		seqfile = a
+	elif o in ("-h", "--help"):
+		print usage
+		sys.exit()
+	elif o in ("-p"):
+		primer3_path = a
+	elif o in ("-s"):
+		product_min = int(a)
+	elif o in ("-l"):
+		product_max = int(a)
+	elif o in ("-g"):
+		targets = a.split(",")
+		print targets
+	elif o in ("-o"):
+		out = a
+	elif o in ("-m"):
+		msa = int(a)
+	else:
+		assert False, "unhandled option"
+
+print "OPtions done"
+groupname = "-".join(targets)
+getprimer_path = os.path.expanduser(getprimer_path)
+muscle_path = getprimer_path + "/bin/muscle"
+primer3_path = getprimer_path + "/bin/primer3_core"
+primer3_parameter_path = getprimer_path + "/primer3web_v4_JZ.txt"
+# other variables
+if not out:
+	out = 'selected_primers_for_' + groupname + ".txt"
+outfile = open(out, 'w') # output file
 #########################
 # STEP 0: create alignment file and primer3output file
 
 RawAlignFile = "alignment_raw.fa"
 alignmentcmd = muscle_path + " -in " + seqfile + " -out " + RawAlignFile + " -quiet"
 print "Alignment command: ", alignmentcmd
-call(alignmentcmd, shell=True)
+if msa:
+	call(alignmentcmd, shell=True)
 
 ###################
 # STEP 1: read alignment fasta file into a dictionary AND format it by removing leading and ending "-"
@@ -199,16 +251,16 @@ for k, v in fasta.items():
 # I only need to use the output from the first target
 line1 = "SEQUENCE_ID=" + mainID
 line2 = "SEQUENCE_TEMPLATE=" + fasta[mainID].replace("-","") # remove "-" in the alignment seq
-line3 = "PRIMER_PRODUCT_OPT_SIZE=" + str(product_opt)
-line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
-line5 = "="
-p3input.write("\n".join([line1, line2, line3, line4, line5]) + "\n")
+#line3 = "PRIMER_PRODUCT_OPT_SIZE=" + str(product_opt)
+line3 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
+line4 = "="
+p3input.write("\n".join([line1, line2, line3, line4]) + "\n")
 
 p3input.close()
 
 # primer3 output file
 primer3output = "primer3.output"
-p3cmd = primer3_path + " -default_version=2 -format_output -p3_settings_file=./primer3web_v4_JZ.txt -output=" + primer3output + " " + primer3input
+p3cmd = primer3_path + " -default_version=2 -format_output -p3_settings_file=" + primer3_parameter_path + " -output=" + primer3output + " " + primer3input
 print "Primer3 command 1st time: ", p3cmd
 call(p3cmd, shell=True)
 
@@ -448,18 +500,18 @@ for pl in newleftprimers:
 					primerpairs[ppname] = pp
 					line1 = "SEQUENCE_ID=" + ppname
 					line2 = "PRIMER_TASK=check_primers"
-					line3 = "PRIMER_PRODUCT_OPT_SIZE=100"
-					line4 = "PRIMER_PRODUCT_SIZE_RANGE=50-150"
+					#line3 = "PRIMER_PRODUCT_OPT_SIZE=100" + str(product_opt)
+					line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
 					line5 = "SEQUENCE_TEMPLATE=" + seqtemplate
 					line6 =  "SEQUENCE_PRIMER=" + pl.seq
 					line7 = "SEQUENCE_PRIMER_REVCOMP=" + ReverseComplement(pr.seq)
 					line8 = "="
-					p3temp.write("\n".join([line1, line2, line3, line4, line5, line6, line7, line8]) + "\n")
+					p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8]) + "\n")
 
 p3temp.close()
 ## use primer3 to check the primer pair quality
 tempout = "temp_primer_pair_test_out_" + groupname + ".txt"
-p3cmd = primer3_path + " -default_version=2 -p3_settings_file=./primer3web_v4_JZ.txt -output=" + " ".join([tempout, tempin])
+p3cmd = primer3_path + " -default_version=2 -p3_settings_file=" + primer3_parameter_path + " -output=" + " ".join([tempout, tempin])
 print "Primer3 command 2nd time: ", p3cmd
 call(p3cmd, shell=True)
 
@@ -537,7 +589,7 @@ outfile.write("\nLeft that across border\n\n")
 # for LEFT
 primernumber = 0
 for pp in newleftprimers:
-	if set((59,)) < set(range(pp.start-1, pp.end)) or set((505,)) < set(range(pp.start-1, pp.end)):
+	if set((59,)) < set(range(pp.start, pp.end-1)) or set((505,)) < set(range(pp.start, pp.end-1)):
 		primernumber += 1
 		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
 print "Left primer that across border:", primernumber
@@ -546,7 +598,7 @@ print "Left primer that across border:", primernumber
 outfile.write("\nRight that across border\n\n")
 primernumber = 0
 for pr in newrightprimers:
-	if set((59,)) < set(range(pp.start-1, pp.end)) or set((505,)) < set(range(pp.start-1, pp.end)):
+	if set((59,)) < set(range(pp.start, pp.end-1)) or set((505,)) < set(range(pp.start, pp.end-1)):
 		primernumber += 1
 		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
 print "Right primer that across border:", primernumber
