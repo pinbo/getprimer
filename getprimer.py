@@ -100,7 +100,7 @@ for o, a in opts:
 		print usage
 		sys.exit()
 	elif o in ("-p"):
-		primer3_path = a
+		getprimer_path = a
 	elif o in ("-s"):
 		product_min = int(a)
 	elif o in ("-l"):

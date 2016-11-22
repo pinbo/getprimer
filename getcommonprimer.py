@@ -51,12 +51,19 @@ from subprocess import call
 import getopt, sys, os
 
 usage="""
-getprimer.py 
+getcommonprimer.py 
 	-i <sequence.fa>
-	-p <GetCommonPrimer path> 
+	-p <GetPrimer path> 
 	-s <product min size> 
-	-l <product max size> 
+	-l <product max size>
+	-r <primer overlap region (such as intron): n1-n2,n3-n4>
+	-t <template name to be used>
 	-o <output file name>"
+	-x <excluded sequences:seqID1,seqID2>
+
+Example:
+	./getcommonprimer.py -i sequence_genome.fa -o temp_output_genomic
+	-p . -r 60-159,606-907 -x chr1B-B2.3,chr1B-B2.2,chr1B-B2.1,chr1A-A2.1,chr1D-D2.1
 """
 
 
@@ -72,15 +79,15 @@ product_min = 50
 product_opt = 100
 product_max = 150
 getprimer_path = "~/Research/Software/git/github/getprimer"
-out = ""
-msa = 1 # whether need to do multiple sequence alignment
-overlap_region = range(60,159+1) + range(605,907+1) # intron region
-
+out = "selected_common_primers.txt"
+overlap_region = [] # intron region
+mainID = ""
+excludeID = []
 # read command line options
 print "Parsing command line optinos"
 
 try:
-	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:o:h", ["help"])
+	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:r:t:x:o:h", ["help"])
 except getopt.GetoptError as err:
 	# print help information and exit:
 	print str(err)  # will print something like "option -a not recognized"
@@ -98,33 +105,31 @@ for o, a in opts:
 		product_min = int(a)
 	elif o in ("-l"):
 		product_max = int(a)
+	elif o in ("-r"):
+		regions = a.split(",")
+		for rr in regions:
+			r1, r2 = rr.split("-")
+			overlap_region += range(int(r1), int(r2)+1)
+	elif o in ("-t"):
+		mainID = a
+	elif o in ("-x"):
+		excludeID = a.split(",")
 	elif o in ("-o"):
 		out = a
 	else:
 		assert False, "unhandled option"
 
-print "OPtions done"
-
+print "Options done"
+#print overlap_region
 getprimer_path = os.path.expanduser(getprimer_path)
-muscle_path = getprimer_path + "/bin/muscle"
 primer3_path = getprimer_path + "/bin/primer3_core"
 primer3_parameter_path = getprimer_path + "/primer3web_v4_JZ.txt"
-# other variables
-
-#########################
-# STEP 0: create alignment file and primer3output file
-
-RawAlignFile = "alignment_raw.fa"
-alignmentcmd = muscle_path + " -in " + seqfile + " -out " + RawAlignFile + " -quiet"
-print "Alignment command: ", alignmentcmd
-if msa:
-	call(alignmentcmd, shell=True)
 
 ###################
 # STEP 1: read alignment fasta file into a dictionary AND format it by removing leading and ending "-"
 fasta = {} # dictionary for alignment
 
-with open(RawAlignFile) as file_one:
+with open(seqfile) as file_one:
 	for line in file_one:
 		if line.startswith(">"):
 			sequence_name = line.rstrip().lstrip(">")
@@ -132,43 +137,9 @@ with open(RawAlignFile) as file_one:
 			fasta.setdefault(sequence_name, "")
 			fasta[sequence_name] += line.rstrip()
 
-## calculate gap number
-gap_left = 0
-gap_right = 0
-
-# gap left number
-for k, v in fasta.items():
-	n = 0
-	for i in v:
-		if i == "-":
-			n += 1
-		else:
-			break
-	if n > gap_left:
-		gap_left = n
-print "Gap left: ", gap_left
-	
-# right gap
-for k, v in fasta.items():
-	n = 0
-	for i in reversed(v):
-		if i == "-":
-			n += 1
-		else:
-			break
-	if n > gap_right:
-		gap_right = n
-
-print "Gap right: ", gap_right
-
-
-### striping sequences to equal length
-for k, v in fasta.items():
-	if gap_right == 0:
-		fasta[k] = v[gap_left:]
-	else:
-		fasta[k] = v[gap_left:-gap_right]
-
+if excludeID:
+	for k in excludeID:
+		del fasta[k]
 ###########################
 # STEP 2: get variation sites
 ids =  fasta.keys()
@@ -177,31 +148,10 @@ print "Sequence IDs: ", ids
 
 #groupname = "-".join(ids)
 
-if not out:
-	out = "selected_common_primers.txt"
 outfile = open(out, 'w') # output file
-	
-alignlen = len(fasta[ids[0]])
-print "Alignment length: ", alignlen
-
-varexclude = [] # variation among targets, any primers that have these should be excluded. 
-ngap = 0 # gaps
-mainID = ids[0] # the one whose primer3 output will be used
+if not mainID:
+	mainID = ids[0] # the one whose primer3 output will be used
 print "Sequence used for creating primers:", mainID
-
-for i in range(alignlen):
-	nd = 0 # number of identities
-	dd = [] # to record site difference for each seq
-	if fasta[mainID][i] == "-":
-		ngap += 1
-	for j in ids:#check difference within targets
-		if fasta[j][i] == fasta[mainID][i]: nd+=1
-	if nd < len(ids): # if the site i has differences within targets
-		if fasta[mainID][i] == "-":
-			coordinates = (i - ngap,i - ngap + 1) # coordinates
-			varexclude.append(coordinates)
-		else:
-			varexclude.append((i - ngap,)) # shift due to gap	
 
 ####################################
 # STEP 3: create primer3.input and run it for output
@@ -212,12 +162,11 @@ p3input = open(primer3input, 'w')
 
 # I only need to use the output from the first target
 line1 = "SEQUENCE_ID=" + mainID
-line2 = "SEQUENCE_TEMPLATE=" + fasta[mainID].replace("-","") # remove "-" in the alignment seq
+line2 = "SEQUENCE_TEMPLATE=" + fasta[mainID]
 #line3 = "PRIMER_PRODUCT_OPT_SIZE=" + str(product_opt)
 line3 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
 line4 = "="
 p3input.write("\n".join([line1, line2, line3, line4]) + "\n")
-
 p3input.close()
 
 # primer3 output file
@@ -270,7 +219,6 @@ class PrimerPair(object):
 		self.penalty = "NA"
 		self.product_size = 0
 
-
 # parse primer3 output file
 # use 0-based primer3 output
 def parse(handle, direction):
@@ -317,38 +265,50 @@ print "Length of RIGHT primers:", len(rightprimers)
 ###################################
 # STEP 5: filter primers with variations
 
+def primerIN (primer, seqdict):
+	n = []
+	for k, v in seqdict.items():
+		if primer.seq in v:
+			n.append(k)
+	return(n)
+
 # selected left primers
 newleftprimers = [] # left primers that are different between target group and the others
 
+nmax = []
 for pp in leftprimers:
-	exclude = 0 # a tag to see whether the primer has difference within target group
-	for var in varexclude: # check whether this primer has sites different within targets
-		if set(var) < set(range(pp.start-1, pp.end)):
-			exclude += 1
-	if exclude == 0: # only if the primer does not have any exlude sites
+	n = primerIN(pp, fasta)
+	if len(n) > len(nmax):
+		nmax = n
+	if len(n) == len(fasta):
 		newleftprimers.append(pp)
 
 print "Number of selected LEFT primers", len(newleftprimers)
-
-if len(newleftprimers) == 0:
-	print "No COMMON left primers found!"
-	sys.exit(1)
+print "Best LEFT primer is common in:", nmax
 
 # selected right primers
 newrightprimers = []
 
+nmax = []
 for pp in rightprimers:
-	exclude = 0
-	for var in varexclude: # check whether this primer has sites different within targets
-		if set(var) < set(range(pp.start-1, pp.end)):
-			exclude += 1
-	if exclude == 0: # only if the primer does not have any exlude sites
+	n = primerIN(pp, fasta)
+	if len(n) > len(nmax):
+		nmax = n
+	if len(n) == len(fasta):
 		newrightprimers.append(pp)
 
 print "Number of selected RIGHT primers", len(newrightprimers)
+print "Best RIGHT primer common in:", nmax
 
+flag = 0
+if len(newleftprimers) == 0:
+	print "No COMMON left primers found!"
+	flag = 1
 if len(newrightprimers) == 0:
 	print "No COMMON RIGHT primers found!"
+	flag = 1
+
+if flag:
 	sys.exit(1)
 	
 #############################
@@ -360,7 +320,6 @@ p3temp = open(tempin, 'w') # output file
 seqtemplate = fasta[mainID].replace("-","") # remove "-" in the alignment seq
 primernumber = 0
 primerpairs = {} # all the pairs with the right size and Tm differences
-
 
 for pl in newleftprimers:
 	for pr in newrightprimers:
@@ -410,7 +369,7 @@ with open(tempout) as infile:
 		if "PRIMER_PAIR_0_COMPL_END" in line:
 			primerpairs[seqid].compl_end = line.split("=")[1]
 
-outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\tprimerpair_score\n")
+outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\n")
 
 #for pp in primerpairs:
 for np, pp in primerpairs.iteritems():
@@ -420,15 +379,13 @@ for np, pp in primerpairs.iteritems():
 		outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end]) + "\n")
 		outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end]) + "\n")
 
-
-
 ######### Get all primers across intron-exon border
 outfile.write("\nLeft that across border\n\n")
 
 # for LEFT
 primernumber = 0
 for pp in newleftprimers:
-	if set(overlap_region)|set(range(pp.start, pp.end-1)):
+	if set(overlap_region) & set(range(pp.start, pp.end-1)):
 		primernumber += 1
 		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
 print "Left primer that across border:", primernumber
@@ -437,7 +394,7 @@ print "Left primer that across border:", primernumber
 outfile.write("\nRight that across border\n\n")
 primernumber = 0
 for pp in newrightprimers:
-	if set(overlap_region)|set(range(pp.start, pp.end-1)):
+	if set(overlap_region) & set(range(pp.start, pp.end-1)):
 		primernumber += 1
 		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
 print "Right primer that across border:", primernumber
