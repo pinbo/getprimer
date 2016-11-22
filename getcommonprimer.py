@@ -53,7 +53,7 @@ import getopt, sys, os
 usage="""
 getprimer.py 
 	-i <sequence.fa>
-	-p <GetPrimer path> 
+	-p <GetCommonPrimer path> 
 	-s <product min size> 
 	-l <product max size> 
 	-o <output file name>"
@@ -80,7 +80,7 @@ overlap_region = range(60,159+1) + range(605,907+1) # intron region
 print "Parsing command line optinos"
 
 try:
-	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:r:o:m:h", ["help"])
+	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:o:h", ["help"])
 except getopt.GetoptError as err:
 	# print help information and exit:
 	print str(err)  # will print something like "option -a not recognized"
@@ -93,15 +93,13 @@ for o, a in opts:
 		print usage
 		sys.exit()
 	elif o in ("-p"):
-		primer3_path = a
+		getprimer_path = a
 	elif o in ("-s"):
 		product_min = int(a)
 	elif o in ("-l"):
 		product_max = int(a)
 	elif o in ("-o"):
 		out = a
-	elif o in ("-m"):
-		msa = int(a)
 	else:
 		assert False, "unhandled option"
 
@@ -173,9 +171,7 @@ for k, v in fasta.items():
 
 ###########################
 # STEP 2: get variation sites
-ids = [] # all other sequence names
-for kk in fasta.keys():
-	ids.append(kk)
+ids =  fasta.keys()
 
 print "Sequence IDs: ", ids
 
@@ -188,19 +184,19 @@ outfile = open(out, 'w') # output file
 alignlen = len(fasta[ids[0]])
 print "Alignment length: ", alignlen
 
-varexclude = [] # varaition among targets, any primers that have these should be excluded. 
+varexclude = [] # variation among targets, any primers that have these should be excluded. 
 ngap = 0 # gaps
 mainID = ids[0] # the one whose primer3 output will be used
 print "Sequence used for creating primers:", mainID
 
 for i in range(alignlen):
-	nd = 0 # number of difference
+	nd = 0 # number of identities
 	dd = [] # to record site difference for each seq
 	if fasta[mainID][i] == "-":
 		ngap += 1
 	for j in ids:#check difference within targets
 		if fasta[j][i] == fasta[mainID][i]: nd+=1
-	if nd < len(ids): # if the site i has no differences within targets
+	if nd < len(ids): # if the site i has differences within targets
 		if fasta[mainID][i] == "-":
 			coordinates = (i - ngap,i - ngap + 1) # coordinates
 			varexclude.append(coordinates)
@@ -341,7 +337,6 @@ if len(newleftprimers) == 0:
 # selected right primers
 newrightprimers = []
 
-
 for pp in rightprimers:
 	exclude = 0
 	for var in varexclude: # check whether this primer has sites different within targets
@@ -441,7 +436,7 @@ print "Left primer that across border:", primernumber
 # For RIGHT	
 outfile.write("\nRight that across border\n\n")
 primernumber = 0
-for pr in newrightprimers:
+for pp in newrightprimers:
 	if set(overlap_region)|set(range(pp.start, pp.end-1)):
 		primernumber += 1
 		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
