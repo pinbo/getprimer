@@ -30,20 +30,23 @@ GetPrimer use "muscle" to create multiple sequence alignment and "Primer3" to de
 # Usage
 ```
 getprimer.py
-	-i <sequence.fa>
-	-p <GetPrimer path>
-	-s <product min size>
-	-l <product max size>
-	-g <target sequences: seqID1,seqID2>
-	-r <range limit: where the differences should be in the primer from 3' end, default 10>
-	-o <output file name>"
-	-v <primer overlap region (such as intron): n1-n2,n3-n4>
+	-i <sequence.fa> : a fasta file with all sequences.
+	-p <GetPrimer path> : the folder of the present scripts for getprimer.py to locate muscle and primer3_core
+	-s <product min size> : default now is 50. Modify the script to change the default value.
+	-l <product max size> : default now is 150.
+	-g <seqID1,seqID2> : target sequences, the sequence IDs in the fasta file which you want the primers to amplify.
+	-r <range limit> : where the differences should be in the primer from 3' end, default 10, because variations in the 5' do not count much for primer specification.
+	-o <output file name>
+	-v <n1-n2,n3-n4> : primer overlap region (such as intron or exon-exon junction) to design genomic DNA specific or RNA specific primers.
   -h help
 ```
 1. Download the full depository to your computer (it has 64bit muscle and primer3_core working in Ubuntu 16.04).
-2. Recompile muscle or primer3_core from source if they do not work in your computer. Put them in the bin subfolder.
+2. Recompile muscle or primer3_core from source if they do not work in your computer. Put them in the bin sub-folder.
 3. You should be able to use it.
 
+**Example**
+
+./getprimer.py -i sequence.fa -s 100 -l 500 -p . -g Chr-B2.2,Chr-B2.3 -v 59-60;300-400 -o primers_for_B2.2_2.3.txt
 
 # To-do
 1. Clean and optimize code
@@ -53,3 +56,5 @@ getprimer.py
 I borrowed ideas from GSP (https://github.com/bioinfogenome/GSP), a great tool for Genome Specific Primers design in polyploid species. I only rewrote it with python (not complete copy of GSP) with my own needs. Thanks to the author of GSP.
 
 I also borrowed some codes from biopython (https://github.com/biopython/biopython/blob/master/Bio/Emboss/Primer3.py). Thanks to them too.
+
+Thanks to the open source software **muscle** and **primer3**.
