@@ -45,6 +45,7 @@ getprimer.py
 1. Download the full depository to your computer (it has 64bit muscle and primer3_core working in Ubuntu 16.04).
 2. Recompile muscle or primer3_core from source if they do not work in your computer. Put them in the bin sub-folder.
 3. You should be able to use it.
+4. I found a lot of primers are around one same sequence variaiton site in the output file. You can sort them by primer pair score to find a few good primers. I may improve this later.
 
 **Example**
 
@@ -59,4 +60,4 @@ I borrowed ideas from GSP (https://github.com/bioinfogenome/GSP), a great tool f
 
 I also borrowed some codes from biopython (https://github.com/biopython/biopython/blob/master/Bio/Emboss/Primer3.py). Thanks to them too.
 
-Thanks to the open source software **muscle** (http://www.drive5.com/muscle/) and **primer3** (http://primer3.sourceforge.net/).
+Thanks to the open source software **Muscle** (http://www.drive5.com/muscle/) and **Primer3** (http://primer3.sourceforge.net/).
