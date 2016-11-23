@@ -1,5 +1,5 @@
-# getprimer
-Python script to design genome specific or homeolog specific primers using Primer3
+# GetPrimer
+Python script to design genome or group specific primers using Muscle and Primer3.
 
 For example:
 
@@ -35,10 +35,12 @@ getprimer.py
 	-s <product min size> : default now is 50. Modify the script to change the default value.
 	-l <product max size> : default now is 150.
 	-g <seqID1,seqID2> : target sequences, the sequence IDs in the fasta file which you want the primers to amplify.
-	-r <range limit> : where the differences should be in the primer from 3' end, default 10, because variations in the 5' do not count much for primer specification.
+	-r <range limit> : where the differences should be in the primer from 3' end, 
+	   default 10, because variations in the 5' do not count much for primer specification.
 	-o <output file name>
-	-v <n1-n2,n3-n4> : primer overlap region (such as intron or exon-exon junction) to design genomic DNA specific or RNA specific primers.
-  -h help
+	-v <n1-n2,n3-n4> : primer overlap region (such as intron or exon-exon junction)
+	   to design genomic DNA specific or RNA specific primers.
+        -h help
 ```
 1. Download the full depository to your computer (it has 64bit muscle and primer3_core working in Ubuntu 16.04).
 2. Recompile muscle or primer3_core from source if they do not work in your computer. Put them in the bin sub-folder.
@@ -57,4 +59,4 @@ I borrowed ideas from GSP (https://github.com/bioinfogenome/GSP), a great tool f
 
 I also borrowed some codes from biopython (https://github.com/biopython/biopython/blob/master/Bio/Emboss/Primer3.py). Thanks to them too.
 
-Thanks to the open source software **muscle** and **primer3**.
+Thanks to the open source software **muscle** (http://www.drive5.com/muscle/) and **primer3** (http://primer3.sourceforge.net/).
