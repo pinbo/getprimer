@@ -60,6 +60,7 @@ getcommonprimer.py
 	-t <template name to be used>
 	-o <output file name>"
 	-x <excluded sequences:seqID1,seqID2>
+	-y <included sequences:seqID1,seqID2>
 
 Example:
 	./getcommonprimer.py -i sequence_genome.fa -o temp_output_genomic
@@ -83,11 +84,12 @@ out = "selected_common_primers.txt"
 overlap_region = [] # intron region
 mainID = ""
 excludeID = []
+includeID = []
 # read command line options
 print "Parsing command line optinos"
 
 try:
-	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:r:t:x:o:h", ["help"])
+	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:r:t:x:y:o:h", ["help"])
 except getopt.GetoptError as err:
 	# print help information and exit:
 	print str(err)  # will print something like "option -a not recognized"
@@ -114,6 +116,8 @@ for o, a in opts:
 		mainID = a
 	elif o in ("-x"):
 		excludeID = a.split(",")
+	elif o in ("-y"):
+		includeID = a.split(",")
 	elif o in ("-o"):
 		out = a
 	else:
@@ -140,6 +144,9 @@ with open(seqfile) as file_one:
 if excludeID:
 	for k in excludeID:
 		del fasta[k]
+if includeID:
+	fasta = dict([ (k,fasta[k]) for k in includeID ])
+
 ###########################
 # STEP 2: get variation sites
 ids =  fasta.keys()
@@ -284,7 +291,7 @@ for pp in leftprimers:
 		newleftprimers.append(pp)
 
 print "Number of selected LEFT primers", len(newleftprimers)
-print "Best LEFT primer is common in:", nmax
+print "Best LEFT primer common in:", nmax
 
 # selected right primers
 newrightprimers = []
@@ -353,6 +360,7 @@ if primernumber == 0:
 tempout = "temp_primer_pair_test_out.txt"
 p3cmd = primer3_path + " -default_version=2 -p3_settings_file=" + primer3_parameter_path + " -output=" + " ".join([tempout, tempin])
 print "Primer3 command 2nd time: ", p3cmd
+
 call(p3cmd, shell=True)
 
 ### parse primer 3 primer check output

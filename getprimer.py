@@ -59,6 +59,7 @@ getprimer.py
 	-g <seqID1,seqID2> 
 	-r <range limit: where the differences should be in the primer from 3' end, default 10>
 	-o <output file name>"
+	-v <primer overlap region (such as intron): n1-n2,n3-n4>
 """
 
 
@@ -74,8 +75,8 @@ getprimer.py
 seqfile = "sequence.fa" # CHANGE HERE
 targets = ["Chr-D2.2", "Chr-A2.2"] # CHAGE HERE
 primer_pair_score_threshold = 100.0
-primer_pair_compl_any_threshold = 1.0
-primer_pair_compl_end_threshold = 1.0
+primer_pair_compl_any_threshold = 10.0 # web_v4 default 45
+primer_pair_compl_end_threshold = 10.0 # web_v4 default 35
 product_min = 50
 product_opt = 100
 product_max = 150
@@ -83,11 +84,12 @@ getprimer_path = "~/Research/Software/git/github/getprimer"
 rangelimit = 10 # only find difference in the first a few nt from 3' end of each primer
 out = ""
 msa = 1 # whether need to do multiple sequence alignment
+overlap_region = [] # intron region
 # read command line options
 print "Parsing command line optinos"
 
 try:
-	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:h", ["help"])
+	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:h", ["help"])
 except getopt.GetoptError as err:
 	# print help information and exit:
 	print str(err)  # will print something like "option -a not recognized"
@@ -112,6 +114,11 @@ for o, a in opts:
 		out = a
 	elif o in ("-m"):
 		msa = int(a)
+	elif o in ("-v"):
+		regions = a.split(",")
+		for rr in regions:
+			r1, r2 = rr.split("-")
+			overlap_region += range(int(r1), int(r2)+1)
 	else:
 		assert False, "unhandled option"
 
@@ -585,7 +592,7 @@ for pr in alldifferenceright:
 
 ######### Get all primers across intron-exon border
 outfile.write("\nLeft that across border\n\n")
-
+"""
 # for LEFT
 primernumber = 0
 for pp in newleftprimers:
@@ -602,7 +609,23 @@ for pr in newrightprimers:
 		primernumber += 1
 		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
 print "Right primer that across border:", primernumber
+"""
+# for LEFT
+primernumber = 0
+for pp in newleftprimers:
+	if set(overlap_region) & set(range(pp.start, pp.end-1)):
+		primernumber += 1
+		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
+print "Left primer that across border:", primernumber
 
+# For RIGHT	
+outfile.write("\nRight that across border\n\n")
+primernumber = 0
+for pp in newrightprimers:
+	if set(overlap_region) & set(range(pp.start, pp.end-1)):
+		primernumber += 1
+		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
+print "Right primer that across border:", primernumber
 #########
 outfile.close()
 
