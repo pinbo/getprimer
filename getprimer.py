@@ -77,16 +77,15 @@ targets = ["Chr-D2.2", "Chr-A2.2"] # CHAGE HERE
 primer_pair_score_threshold = 100.0
 primer_pair_compl_any_threshold = 10.0 # web_v4 default 45
 primer_pair_compl_end_threshold = 10.0 # web_v4 default 35
-product_min = 50
-product_opt = 100
-product_max = 150
+product_min = 100
+product_max = 1000
 getprimer_path = "~/Research/Software/git/github/getprimer"
 rangelimit = 10 # only find difference in the first a few nt from 3' end of each primer
 out = ""
 msa = 1 # whether need to do multiple sequence alignment
 overlap_region = [] # intron region
 # read command line options
-print "Parsing command line optinos"
+print "Parsing command line options"
 
 try:
 	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:h", ["help"])
@@ -114,6 +113,8 @@ for o, a in opts:
 		out = a
 	elif o in ("-m"):
 		msa = int(a)
+	elif o in ("-r"):
+		rangelimit = int(a)
 	elif o in ("-v"):
 		regions = a.split(",")
 		for rr in regions:
@@ -259,9 +260,10 @@ for k, v in fasta.items():
 line1 = "SEQUENCE_ID=" + mainID
 line2 = "SEQUENCE_TEMPLATE=" + fasta[mainID].replace("-","") # remove "-" in the alignment seq
 #line3 = "PRIMER_PRODUCT_OPT_SIZE=" + str(product_opt)
-line3 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
-line4 = "="
-p3input.write("\n".join([line1, line2, line3, line4]) + "\n")
+line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
+line5 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + getprimer_path + "/bin/primer3_config/"
+line6 = "="
+p3input.write("\n".join([line1, line2, line4, line5, line6]) + "\n")
 
 p3input.close()
 
@@ -512,8 +514,9 @@ for pl in newleftprimers:
 					line5 = "SEQUENCE_TEMPLATE=" + seqtemplate
 					line6 =  "SEQUENCE_PRIMER=" + pl.seq
 					line7 = "SEQUENCE_PRIMER_REVCOMP=" + ReverseComplement(pr.seq)
-					line8 = "="
-					p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8]) + "\n")
+					line8 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + getprimer_path + "/bin/primer3_config/"
+					line9 = "="
+					p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8, line9]) + "\n")
 
 p3temp.close()
 ## use primer3 to check the primer pair quality

@@ -5,15 +5,15 @@ P3_FILE_TYPE=settings
 # I modified below parameters from the default primer3web_v4 settings
 PRIMER_FIRST_BASE_INDEX=0
 PRIMER_TASK=pick_primer_list
-PRIMER_PRODUCT_OPT_SIZE=100
-PRIMER_PRODUCT_SIZE_RANGE=50-150
+PRIMER_PRODUCT_OPT_SIZE=0
+PRIMER_PRODUCT_SIZE_RANGE=150-250 100-300 301-400 401-500 501-600 601-700 701-850 851-1000
 PRIMER_NUM_RETURN=10000
 PRIMER_MAX_END_STABILITY=9.0
 
 # PRIMER_TM_FORMULA=1 means use the SantaLucia parameters (Proc Natl Acad Sci 95:1460-65)
 PRIMER_TM_FORMULA=1
 
-PRIMER_THERMODYNAMIC_PARAMETERS_PATH=./bin/primer3_config/
+#PRIMER_THERMODYNAMIC_PARAMETERS_PATH=./bin/primer3_config/
 ##########
 
 P3_FILE_ID=Settings for PCR amplification followed by Sanger sequencing on both strands using PCR primers
