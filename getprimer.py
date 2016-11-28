@@ -63,6 +63,7 @@ getprimer.py
 	-r <range limit: where the differences should be in the primer from 3' end, default 10>
 	-o <output file name>"
 	-v <primer overlap region (such as intron): n1-n2,n3-n4>
+	-f <1 or 0, default 1: filter the output>
 """
 
 
@@ -81,11 +82,12 @@ rangelimit = 10 # only find difference in the first a few nt from 3' end of each
 out = ""
 msa = 1 # whether need to do multiple sequence alignment
 overlap_region = [] # intron region
+filter_flag = 0 # whether to filter the primers to remove primers in the same positions
 # read command line options
 print "Parsing command line options"
 
 try:
-	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:h", ["help"])
+	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:h", ["help"])
 except getopt.GetoptError as err:
 	# print help information and exit:
 	print str(err)  # will print something like "option -a not recognized"
@@ -112,6 +114,8 @@ for o, a in opts:
 		msa = int(a)
 	elif o in ("-r"):
 		rangelimit = int(a)
+	elif o in ("-f"):
+		filter_flag = int(a)
 	elif o in ("-v"):
 		regions = a.split(",")
 		for rr in regions:
@@ -468,6 +472,25 @@ print len(alldifferenceright)
 
 print "Number of selected RIGHT primers", len(newrightprimers)
 
+"""
+# sort primers by score
+newleftprimers.sort(key=lambda x: x.score, reverse=True)
+newrightprimers.sort(key=lambda x: x.score, reverse=True)
+
+## filter primers based on positions (less than 10 bp)
+def filterPrimer(primer_vector):
+    exist_sites = []
+    primer_vector_new = [] # new primer vector with non-duplicated primers
+    for p in primer_vector:
+        if p.start not in exist_sites:
+			primer_vector_new.append(p)
+			exist_sites += range(p.start - 10, p.start + 11)
+    return primer_vector_new
+
+if filter_flag:
+	newleftprimers = filterPrimer(newleftprimers)
+	newrightprimers = filterPrimer(newrightprimers)
+"""
 #############################
 # STEP 5: Select and Test Primer Pairs
 
@@ -549,13 +572,23 @@ with open(tempout) as infile:
 outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\tprimerpair_score\n")
 
 #for pp in primerpairs:
-for np, pp in primerpairs.iteritems():
+pp_vector = primerpairs.values()
+pp_vector.sort(key=lambda x: x.score, reverse=True)
+exist_left = []
+exist_right = []
+for pp in pp_vector:
 	if pp.compl_any != "NA" and float(pp.compl_any) <= primer_pair_compl_any_threshold and float(pp.compl_end) <= primer_pair_compl_end_threshold:
 		pl = pp.left
 		pr = pp.right
-		outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score)]) + "\n")
-		outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score)]) + "\n")
-
+		if filter_flag:
+			if pl.end not in exist_left or pr.start not in exist_right:
+				outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score)]) + "\n")
+				outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score)]) + "\n")
+				exist_left += range(pl.end - 5, pl.end + 6)
+				exist_right += range(pr.start -5, pr.start + 6)
+		else:
+			outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score)]) + "\n")
+			outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score)]) + "\n")
 
 
 """
