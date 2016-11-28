@@ -46,6 +46,9 @@
 # scored now is (diffnumber*100/number_of_other_sequence + 100) / (dif_position + 1), so the dividing is from 2.
 # added command line options
 
+# 11/28/2016
+# modified the score calculation
+
 ### Imported
 from subprocess import call
 import getopt, sys, os
@@ -65,16 +68,10 @@ getprimer.py
 
 #########################
 # parameter or file names that need to be changed
-# Gene groups (5 here)
-# ["Chr-B2.2"]
-# ["Chr-B2.3"]
-# ["Chr-D2.2", "Chr-A2.2"]
-# ["Chr-D2.3", "Chr-A2.3"]
-# ["Chr-B2.1", "Chr-D2.1", "Chr-A2.1"]
 
-seqfile = "sequence.fa" # CHANGE HERE
-targets = ["Chr-D2.2", "Chr-A2.2"] # CHAGE HERE
-primer_pair_score_threshold = 100.0
+seqfile = "sequence.fa"
+targets = []
+primer_pair_score_threshold = 50.0
 primer_pair_compl_any_threshold = 10.0 # web_v4 default 45
 primer_pair_compl_end_threshold = 10.0 # web_v4 default 35
 product_min = 100
@@ -122,8 +119,10 @@ for o, a in opts:
 			overlap_region += range(int(r1), int(r2)+1)
 	else:
 		assert False, "unhandled option"
-
 print "OPtions done"
+if not targets:
+	print "Please give the sequence IDs for primer design!"
+	sys.exit(1)
 groupname = "-".join(targets)
 getprimer_path = os.path.expanduser(getprimer_path)
 muscle_path = getprimer_path + "/bin/muscle"
@@ -390,13 +389,16 @@ for pp in leftprimers:
 			if set(var) < set(range(pp.end - rangelimit, pp.end)): # pp.start and pp.end is 1-based, not 0-based
 				difpos = pp.end - var[-1] # position of different site from the end: for calculating score
 				difnum = sum(i > 0 for i in diffarray[var]) # how many sequences this difpos can differ
-				pp.score += (difnum / len(ids) + 1) * 100 / (difpos+1) # consider both the difpos and how many it can differ
+				#pp.score += (difnum / len(ids) + 1) * 100 / (difpos+1) # consider both the difpos and how many it can differ
 				pp.difsitedict[difpos] = diffarray[var]
 				pp.nvar += 1
 				if pp.difsite:
 					pp.difsite = [sum(x) for x in zip(pp.difsite, diffarray[var])]
 				else:
 					pp.difsite = diffarray[var]
+				difnum_new = sum(i > 0 for i in pp.difsite)
+				dif_add = difnum_new - difnum # whether it can increase the overal variation
+				pp.score += (float(difnum) / len(ids) * 100 + float(dif_add) / len(ids) * 50) / difpos
 			if var == (pp.end-1,):
 				pp.difthree = "YES"
 		if pp.nvar > 0: # if there is difference
@@ -433,13 +435,16 @@ for pp in rightprimers:
 			if set(var) < set(range(pp.start-1, pp.start-1 + rangelimit)):
 				difpos = var[0] - pp.start + 2  # position of different site from the end: for calculating score
 				difnum = sum(i > 0 for i in diffarray[var]) # how many sequences this difpos can differ
-				pp.score += (difnum / len(ids) + 1) * 100 / (difpos + 1) # consider both the difpos and how many it can differ
+				#pp.score += (difnum / len(ids) + 1) * 100 / (difpos + 1) # consider both the difpos and how many it can differ
 				pp.difsitedict[difpos] = diffarray[var]
 				pp.nvar += 1
 				if pp.difsite:
 					pp.difsite = [sum(x) for x in zip(pp.difsite, diffarray[var])]
 				else:
 					pp.difsite = diffarray[var]
+				difnum_new = sum(i > 0 for i in pp.difsite)
+				dif_add = difnum_new - difnum # whether it can increase the overal variation
+				pp.score += (float(difnum) / len(ids) * 100 + float(dif_add) / len(ids) * 50) / difpos
 			if var == (pp.start-1,): # see whether the variation site is the 3' first site
 				pp.difthree = "YES"
 		if pp.nvar > 0:
@@ -504,7 +509,9 @@ for pl in newleftprimers:
 				diffmerge = merge_dict(pl.difsitedict, pr.difsitedict)
 				for k, v in diffmerge.items():
 					difnum = sum(i > 0 for i in v) # how many sequences this difpos can differ
-					pp.score += (difnum / len(ids) + 1) * 100 / (k + 1)
+					tt = sum(i > 1 for i in v) # to account for the same variations between left and right primers
+					#pp.score += (difnum / len(ids) + 1) * 100 / (k + 1)
+					pp.score += (float(difnum) / len(ids) * 100 + float(tt) / len(ids) * 50)/ k
 				if pp.score >= primer_pair_score_threshold:
 					primerpairs[ppname] = pp
 					line1 = "SEQUENCE_ID=" + ppname
