@@ -48,6 +48,8 @@
 
 # 11/28/2016
 # modified the score calculation
+# add filter of primers to remove duplicated primers
+# look for overlap primers in all possible primers (leftprimers and rightprimers)
 
 ### Imported
 from subprocess import call
@@ -64,6 +66,9 @@ getprimer.py
 	-o <output file name>"
 	-v <primer overlap region (such as intron): n1-n2,n3-n4>
 	-f <1 or 0, default 1: filter the output>
+	-a <primer_pair_compl_any_threshold: default 10>
+	-e <primer_pair_compl_end_threshold: default 10>
+	-c <primer_pair_score_threshold: default 50>
 """
 
 
@@ -87,7 +92,7 @@ filter_flag = 0 # whether to filter the primers to remove primers in the same po
 print "Parsing command line options"
 
 try:
-	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:h", ["help"])
+	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:a:e:c:h", ["help"])
 except getopt.GetoptError as err:
 	# print help information and exit:
 	print str(err)  # will print something like "option -a not recognized"
@@ -116,6 +121,12 @@ for o, a in opts:
 		rangelimit = int(a)
 	elif o in ("-f"):
 		filter_flag = int(a)
+	elif o in ("-a"):
+		primer_pair_compl_any_threshold = int(a)
+	elif o in ("-e"):
+		primer_pair_compl_end_threshold = int(a)
+	elif o in ("-c"):
+		primer_pair_score_threshold = int(a)
 	elif o in ("-v"):
 		regions = a.split(",")
 		for rr in regions:
@@ -655,7 +666,8 @@ print "Right primer that across border:", primernumber
 """
 # for LEFT
 primernumber = 0
-for pp in newleftprimers:
+#for pp in newleftprimers:
+for pp in leftprimers:
 	if set(overlap_region) & set(range(pp.start, pp.end-1)):
 		primernumber += 1
 		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
@@ -664,7 +676,8 @@ print "Left primer that across border:", primernumber
 # For RIGHT	
 outfile.write("\nRight that across border\n\n")
 primernumber = 0
-for pp in newrightprimers:
+#for pp in newrightprimers:
+for pp in rightprimers:
 	if set(overlap_region) & set(range(pp.start, pp.end-1)):
 		primernumber += 1
 		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
