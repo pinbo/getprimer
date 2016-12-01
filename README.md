@@ -47,7 +47,7 @@ getprimer.py
 	-h help
 ```
 1. Download the full depository to your computer (it has 64bit muscle and primer3_core working in Ubuntu 16.04).
-2. Recompile muscle or primer3_core from source if they do not work in your computer. Put them in the bin sub-folder.
+2. Download and/or Recompile muscle or primer3_core from source the if they do not work in your computer. Rename them as "muscle" and "primer3_core" (without .exe) and put them in the bin sub-folder (replace the existed ones).
 3. You should be able to use it.
 4. I found a lot of primers are around one same sequence variaiton site in the output file. You can sort them by primer pair score to find a few good primers. I added a filter option: "-f 1" will remove similar primers in the same region.
 
