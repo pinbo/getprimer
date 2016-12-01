@@ -39,8 +39,12 @@ getprimer.py
 	   default 10, because variations in the 5' do not count much for primer specification.
 	-o <output file name>
 	-v <n1-n2,n3-n4> : primer overlap region (such as intron or exon-exon junction)
-	   to design genomic DNA specific or RNA specific primers.
-        -h help
+	   to design genomic DNA specific or RNA specific primers
+	-f <1 or 0, default 0: no filtering of the output>
+	-a <primer_pair_compl_any_threshold: default 10>
+	-e <primer_pair_compl_end_threshold: default 10>
+	-c <primer_pair_score_threshold: default 50>
+	-h help
 ```
 1. Download the full depository to your computer (it has 64bit muscle and primer3_core working in Ubuntu 16.04).
 2. Recompile muscle or primer3_core from source if they do not work in your computer. Put them in the bin sub-folder.
