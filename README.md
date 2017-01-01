@@ -12,6 +12,9 @@ I want primers to amplify homeologs but not paralogs, e.g. one pair of primers t
 
 This python script with Primer3 can design primers that can only amplify one group of sequences but not the others.
 
+# Changes
+- 01/01/2016 Added **getprimer2.py**, which looses the primer criteria but strengths the primer specific (2-base differences in the first 4 3'-termini bases or 5-base differences in the first 15 3'termini bases)
+
 # Dependencies
 
 GetPrimer use "muscle" to create multiple sequence alignment and "Primer3" to design primers.
