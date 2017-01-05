@@ -2,25 +2,25 @@
 # -*- coding: utf-8 -*-
 #
 #  getprimer.py
-#  
+#
 #  Copyright 2016 Junli Zhang <zhjl86@gmail.com>
-#  
+#
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
-#  
+#
 #  This program is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-#  
+#
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
-#  
-#  
+#
+#
 
 ### version update
 # v1.2
@@ -56,17 +56,21 @@
 # primer output now also includes base pair differences from all other sequences
 # use primer3 default (instead of web_v4 settings) to loose the criteria
 
+# 1/4/2017
+# add support for windows 7.
+# more consideration for primers across user-defined border
+
 ### Imported
 from subprocess import call
 import getopt, sys, os
 
 usage="""
-getprimer.py 
+getprimer.py
 	-i <sequence.fa>
-	-p <GetPrimer path> 
-	-s <product min size> 
-	-l <product max size> 
-	-g <seqID1,seqID2> 
+	-p <GetPrimer path>
+	-s <product min size>
+	-l <product max size>
+	-g <seqID1,seqID2>
 	-r <range limit: where the differences should be in the primer from 3' end, default 10>
 	-o <output file name>"
 	-v <primer overlap region (such as intron): n1-n2,n3-n4>
@@ -154,7 +158,7 @@ if sys.platform.startswith('linux'): # linux
 elif sys.platform == "win32" or sys.platform == "cygwin": # Windows...
 	primer3_path = getprimer_path + "/bin/primer3_core.exe"
 	muscle_path = getprimer_path + "/bin/muscle.exe"
-	
+
 # other variables
 if not out:
 	out = 'selected_primers_for_' + groupname + ".txt"
@@ -195,7 +199,7 @@ for k, v in fasta.items():
 	if n > gap_left:
 		gap_left = n
 print "Gap left: ", gap_left
-	
+
 # right gap
 for k, v in fasta.items():
 	n = 0
@@ -225,13 +229,13 @@ for kk in fasta.keys():
 		ids.append(kk)
 
 print "The other groups: ", ids
-		
+
 alignlen = len(fasta[targets[0]])
 print "Alignment length: ", alignlen
 
 
 variation = [] # variation sites
-varexclude = [] # varaition among targets, any primers that have these should be excluded. 
+varexclude = [] # varaition among targets, any primers that have these should be excluded.
 diffarray = {} # to record difference with each other seq in each site, for primer pair selection later
 ngap = 0 # gaps
 mainID = targets[0] # the one whose primer3 output will be used
@@ -266,7 +270,7 @@ for i in range(alignlen):
 			coordinates = (i - ngap,i - ngap + 1) # coordinates
 			varexclude.append(coordinates)
 		else:
-			varexclude.append((i - ngap,)) # shift due to gap	
+			varexclude.append((i - ngap,)) # shift due to gap
 
 ####################################
 # STEP 3: create primer3.input and run it for output
@@ -390,6 +394,8 @@ def parse(handle, direction):
 				primer.anys = pp[6]
 				primer.three = pp[7]
 				primer.hairpin = pp[8]
+				if set(overlap_region) & set(range(primer.start, primer.end-1)):
+					primer.overlap = "YES"
 				primerlist.append(primer)
 			if startread and "PRIMER PICKING RESULTS FOR" in line and targets[0] not in line:
 				break
@@ -439,14 +445,13 @@ for pp in leftprimers:
 			newleftprimers.append(pp)
 			pp.difnum = sum(i > 0 for i in pp.difsite) # count how many sequences can be differentiated within the rangelimit
 			if min(pp.difsite) > 0:
-				alldifferenceleft.append(pp)
+				#alldifferenceleft.append(pp)
 				pp.difall = "YES"
-			#alldifsite15 = [int(x > 4) for x in pp.difsite] # at least 5 differences
-			#alldifsite4 = [int(x > 1) for x in pp.difsite4] # at least 2 differences
-			#alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
-			#if min(alldifsite) > 0:
-			#	alldifferenceleft.append(pp)
-			#	pp.difall = "YES"
+			alldifsite15 = [int(x > 4) for x in pp.difsite] # at least 5 differences
+			alldifsite4 = [int(x > 1) for x in pp.difsite4] # at least 2 differences
+			alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
+			if min(alldifsite) > 0:
+				alldifferenceleft.append(pp)
 		else:
 			nodiffleft.append(pp)
 
@@ -489,14 +494,13 @@ for pp in rightprimers:
 			newrightprimers.append(pp)
 			pp.difnum = sum(i > 0 for i in pp.difsite)
 			if min(pp.difsite) > 0:
-				alldifferenceright.append(pp)
+				#alldifferenceright.append(pp)
 				pp.difall = "YES"
-			#alldifsite15 = [int(x > 4) for x in pp.difsite] # at least 5 differences
-			#alldifsite4 = [int(x > 1) for x in pp.difsite4] # at least 2 differences
-			#alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
-			#if min(alldifsite) > 0:
-			#	alldifferenceleft.append(pp)
-			#	pp.difall = "YES"
+			alldifsite15 = [int(x > 4) for x in pp.difsite] # at least 5 differences
+			alldifsite4 = [int(x > 1) for x in pp.difsite4] # at least 2 differences
+			alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
+			if min(alldifsite) > 0:
+				alldifferenceright.append(pp)
 		else:
 			nodiffright.append(pp)
 
@@ -528,13 +532,13 @@ def merge_dict(dx, dy):
 		else:
 			newdict[key] = dy[key]
 	return(newdict)
-
+"""
 for pl in newleftprimers:
 	for pr in newrightprimers:
 		alldifsite15 = [int(max(x) > 4) for x in zip(pl.difsite, pr.difsite)] # at least 5 differences
 		alldifsite4 = [int(max(x) > 1) for x in zip(pl.difsite4, pr.difsite4)] # at least 2 differences
 		alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
-		
+
 		if min(alldifsite) > 0 and pl.end < pr.start and abs(pl.tm - pr.tm) < 1.0:
 			#print primernumber
 			productsize = pr.end - pl.start + 1
@@ -567,7 +571,50 @@ for pl in newleftprimers:
 					line8 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + getprimer_path + "/bin/primer3_config/"
 					line9 = "="
 					p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8, line9]) + "\n")
+"""
 
+def testpair(leftlist, rightlist):
+	global product_max, product_min, primernumber, primerpairs, p3temp
+	for pl in leftlist:
+		for pr in rightlist:
+			alldifsite15 = [int(max(x) > 4) for x in zip(pl.difsite, pr.difsite)] # at least 5 differences
+			alldifsite4 = [int(max(x) > 1) for x in zip(pl.difsite4, pr.difsite4)] # at least 2 differences
+			alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
+			if min(alldifsite) > 0 and pl.end < pr.start and abs(pl.tm - pr.tm) < 1.0:
+				productsize = pr.end - pl.start + 1
+				if productsize >= product_min and productsize <= product_max:
+					primernumber += 1
+					ppname = str(primernumber)
+					pp = PrimerPair()
+					pp.name = ppname
+					pp.left = pl
+					pp.right = pr
+					pp.product_size = productsize
+					pp.difsite = alldifsite15
+					pp.difsite4 = alldifsite4
+					# get score below
+					diffmerge = merge_dict(pl.difsitedict, pr.difsitedict)
+					for k, v in diffmerge.items():
+						difnum = sum(i > 0 for i in v) # how many sequences this difpos can differ
+						tt = sum(i > 1 for i in v) # to account for the same variations between left and right primers
+						#pp.score += (difnum / len(ids) + 1) * 100 / (k + 1)
+						pp.score += (float(difnum) / len(ids) * 100 + float(tt) / len(ids) * 50)/ k
+					if pp.score >= primer_pair_score_threshold:
+						primerpairs[ppname] = pp
+						line1 = "SEQUENCE_ID=" + ppname
+						line2 = "PRIMER_TASK=check_primers"
+						line3 = "PRIMER_EXPLAIN_FLAG=1"
+						line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
+						line5 = "SEQUENCE_TEMPLATE=" + seqtemplate
+						line6 =  "SEQUENCE_PRIMER=" + pl.seq
+						line7 = "SEQUENCE_PRIMER_REVCOMP=" + ReverseComplement(pr.seq)
+						line8 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + getprimer_path + "/bin/primer3_config/"
+						line9 = "="
+						p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8, line9]) + "\n")
+
+testpair(newleftprimers, newrightprimers)
+testpair(alldifferenceleft, nodiffright)
+testpair(alldifferenceright, nodiffleft)
 p3temp.close()
 
 # check to see whether no good primer pairs found
@@ -597,7 +644,7 @@ with open(tempout) as infile:
 		if "PRIMER_PAIR_0_COMPL_END" in line:
 			primerpairs[seqid].compl_end = line.split("=")[1]
 
-outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\tprimerpair_score\tprimer_diff15\tprimer_diff4\n")
+outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\tprimerpair_score\tprimer_diff15\tprimer_diff4\tacross_overlap\n")
 
 print "primer_pair_compl_any_threshold ", primer_pair_compl_any_threshold
 print "primer_pair_compl_end_threshold ", primer_pair_compl_end_threshold
@@ -613,79 +660,13 @@ for pp in pp_vector:
 		pr = pp.right
 		if filter_flag:
 			if pl.end not in exist_left or pr.start not in exist_right:
-				outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4)]) + "\n")
-				outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4)]) + "\n")
+				outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
+				outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
 				exist_left += range(pl.end - 5, pl.end + 6)
 				exist_right += range(pr.start -5, pr.start + 6)
 		else:
-			outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4)]) + "\n")
-			outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4)]) + "\n")
-
-
-"""
-#outfile = open('selected_primers_for_Chr-B2.2.txt', 'w')
-outfile.write("index\tprimerID\ttype\tstart\tend\tlength\tproduct_size\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tprimer_seq\tReverseComplement\n")
-primernumber = 0
-for pl in newleftprimers:
-	for pr in newrightprimers:
-		alldifsite = [sum(x) for x in zip(pl.difsite, pr.difsite)]
-		if min(alldifsite) > 0 and pl.end < pr.start and abs(pl.tm - pr.tm) < 1.0:
-			#print primernumber
-			productsize = pr.end - pl.start + 1
-			#if productsize >= 50 and productsize <= 150:
-			if productsize >= 50 and productsize <= 150:
-				primernumber += 1
-				outfile.write("\t".join([str(primernumber), pl.formatprimer()]) + "\n")
-				outfile.write("\t".join([str(primernumber), pr.formatprimer()]) + "\n")
-		
-outfile.write("\nLeft that can differ all\n\n")
-
-# for LEFT
-for pl in alldifferenceleft:
-	for pr in nodiffright:
-		if pl.end < pr.start and abs(pl.tm - pr.tm) < 1.0:
-			productsize = pr.end - pl.start + 1
-			if productsize >= 50 and productsize <= 150:
-				primernumber += 1
-				outfile.write("\t".join([str(primernumber), pl.formatprimer()]) + "\n")
-				outfile.write("\t".join([str(primernumber), pr.formatprimer()]) + "\n")
-
-# For RIGHT	
-outfile.write("\nRight that can differ all\n\n")
-
-for pr in alldifferenceright:
-	for pl in nodiffleft:
-		if pl.end < pr.start and abs(pl.tm - pr.tm) < 1.0:
-			productsize = pr.end - pl.start + 1
-			if productsize >= 50 and productsize <= 150:
-				primernumber += 1
-				outfile.write("\t".join([str(primernumber), pl.formatprimer()]) + "\n")
-				outfile.write("\t".join([str(primernumber), pr.formatprimer()]) + "\n")
-"""
-
-
-######### Get all primers across intron-exon border
-
-outfile.write("\nLeft that across border\n\n")
-
-# for LEFT
-primernumber = 0
-#for pp in newleftprimers:
-for pp in leftprimers:
-	if set(overlap_region) & set(range(pp.start, pp.end-1)):
-		primernumber += 1
-		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
-print "Left primer that across border:", primernumber
-
-# For RIGHT	
-outfile.write("\nRight that across border\n\n")
-primernumber = 0
-#for pp in newrightprimers:
-for pp in rightprimers:
-	if set(overlap_region) & set(range(pp.start, pp.end-1)):
-		primernumber += 1
-		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
-print "Right primer that across border:", primernumber
+			outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
+			outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
 
 #########
 outfile.close()
