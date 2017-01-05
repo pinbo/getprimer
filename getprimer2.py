@@ -145,9 +145,16 @@ if not targets:
 	sys.exit(1)
 groupname = "-".join(targets)
 getprimer_path = os.path.expanduser(getprimer_path)
-muscle_path = getprimer_path + "/bin/muscle"
-primer3_path = getprimer_path + "/bin/primer3_core"
 primer3_parameter_path = getprimer_path + "/primer3web_v4_JZ.txt"
+
+#from sys import platform
+if sys.platform.startswith('linux'): # linux
+	primer3_path = getprimer_path + "/bin/primer3_core"
+	muscle_path = getprimer_path + "/bin/muscle"
+elif sys.platform == "win32" or sys.platform == "cygwin": # Windows...
+	primer3_path = getprimer_path + "/bin/primer3_core.exe"
+	muscle_path = getprimer_path + "/bin/muscle.exe"
+	
 # other variables
 if not out:
 	out = 'selected_primers_for_' + groupname + ".txt"
@@ -329,6 +336,7 @@ class Primers(object):
 		self.difnum = 0 # how many sequences can be differentiated within the rangelimit
 		self.score = 0.0 # score based on number of different sites and differ position
 		self.difsitedict = {} # difsite in each different position (just like 2-dim array): self.difsite would be sum of cols of self.difsitedict
+		self.overlap = "NO" # whether across the user defined overlap region
 
 	def formatprimer(self):
 		if self.direction == "LEFT_PRIMER":
@@ -657,7 +665,7 @@ for pr in alldifferenceright:
 
 
 ######### Get all primers across intron-exon border
-"""
+
 outfile.write("\nLeft that across border\n\n")
 
 # for LEFT
@@ -678,7 +686,7 @@ for pp in rightprimers:
 		primernumber += 1
 		outfile.write("\t".join([str(primernumber), pp.formatprimer()]) + "\n")
 print "Right primer that across border:", primernumber
-"""
+
 #########
 outfile.close()
 

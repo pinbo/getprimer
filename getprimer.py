@@ -140,9 +140,16 @@ if not targets:
 	sys.exit(1)
 groupname = "-".join(targets)
 getprimer_path = os.path.expanduser(getprimer_path)
-muscle_path = getprimer_path + "/bin/muscle"
-primer3_path = getprimer_path + "/bin/primer3_core"
 primer3_parameter_path = getprimer_path + "/primer3web_v4_JZ.txt"
+
+#from sys import platform
+if sys.platform.startswith('linux'): # linux
+	primer3_path = getprimer_path + "/bin/primer3_core"
+	muscle_path = getprimer_path + "/bin/muscle"
+elif sys.platform == "win32" or sys.platform == "cygwin": # Windows...
+	primer3_path = getprimer_path + "/bin/primer3_core.exe"
+	muscle_path = getprimer_path + "/bin/muscle.exe"
+	
 # other variables
 if not out:
 	out = 'selected_primers_for_' + groupname + ".txt"
