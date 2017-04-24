@@ -16,6 +16,7 @@ This python script with Primer3 can design primers that can only amplify one gro
 - 01/01/2017 Added **getprimer2.py**, which looses the primer criteria but strengths the primer specific (2-base differences in the first 4 3'-termini bases or 5-base differences in the first 15 3'termini bases)
 - 01/04/2017 Added support for windows 7 users (but still need to use terminal either built-in or Cygwin)
 - 04/23/2017 Added support for MacOSX system; removed the option "-p" for script path.
+- 04/23/2017 Loosed the primer criteria: 1 base differences in the first 4 3'-termini bases or 4 base differences in the first 15 3'termini bases)
 
 # Dependencies
 
@@ -57,7 +58,7 @@ getprimer.py
 
 **Example**
 
-./getprimer.py -i sequence.fa -s 100 -l 500 -g Chr-B2.2,Chr-B2.3 -v 59-60,300-400 -f 1 -o primers_for_B2.2_2.3.txt
+./getprimer2.py -i sequence.fa -s 100 -l 500 -g Chr-B2.2,Chr-B2.3 -v 59-60,300-400 -f 1 -o primers_for_B2.2_2.3.txt
 
 # To-do
 1. Clean and optimize code
