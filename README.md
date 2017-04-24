@@ -15,6 +15,7 @@ This python script with Primer3 can design primers that can only amplify one gro
 # Changes
 - 01/01/2017 Added **getprimer2.py**, which looses the primer criteria but strengths the primer specific (2-base differences in the first 4 3'-termini bases or 5-base differences in the first 15 3'termini bases)
 - 01/04/2017 Added support for windows 7 users (but still need to use terminal either built-in or Cygwin)
+- 04/23/2017 Added support for MacOSX system; removed the option "-p" for script path.
 
 # Dependencies
 
@@ -35,7 +36,6 @@ GetPrimer use "muscle" to create multiple sequence alignment and "Primer3" to de
 ```
 getprimer.py
 	-i <sequence.fa> : a fasta file with all sequences.
-	-p <GetPrimer path> : the folder of the present scripts for getprimer.py to locate muscle and primer3_core
 	-s <product min size> : default now is 50. Modify the script to change the default value.
 	-l <product max size> : default now is 150.
 	-g <seqID1,seqID2> : target sequences, the sequence IDs in the fasta file which you want the primers to amplify.
@@ -57,7 +57,7 @@ getprimer.py
 
 **Example**
 
-./getprimer.py -i sequence.fa -s 100 -l 500 -p . -g Chr-B2.2,Chr-B2.3 -v 59-60,300-400 -o primers_for_B2.2_2.3.txt
+./getprimer.py -i sequence.fa -s 100 -l 500 -g Chr-B2.2,Chr-B2.3 -v 59-60,300-400 -f 1 -o primers_for_B2.2_2.3.txt
 
 # To-do
 1. Clean and optimize code
