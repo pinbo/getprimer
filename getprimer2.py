@@ -60,6 +60,11 @@
 # add support for windows 7.
 # more consideration for primers across user-defined border
 
+# 4/23/2017
+# add support for MacOSX 64bit
+# removed option "-p" for script path
+# loosed the criteria to 1) 1 mismatch in the first 4 3'-termini bases or 4 mismatches in the last 15 3'-termini base
+
 ### Imported
 from subprocess import call
 import getopt, sys, os
@@ -91,7 +96,7 @@ primer_pair_compl_any_threshold = 10.0 # web_v4 default 45
 primer_pair_compl_end_threshold = 10.0 # web_v4 default 35
 product_min = 100
 product_max = 1000
-getprimer_path = "~/Research/Software/git/github/getprimer"
+getprimer_path = os.path.dirname(os.path.realpath(__file__))
 rangelimit = 15 # only find difference in the first a few nt from 3' end of each primer
 out = ""
 msa = 1 # whether need to do multiple sequence alignment
@@ -149,7 +154,7 @@ if not targets:
 	sys.exit(1)
 groupname = "-".join(targets)
 getprimer_path = os.path.expanduser(getprimer_path)
-primer3_parameter_path = getprimer_path + "/primer3web_v4_JZ.txt"
+#primer3_parameter_path = getprimer_path + "/primer3web_v4_JZ.txt"
 
 #from sys import platform
 if sys.platform.startswith('linux'): # linux
@@ -158,7 +163,9 @@ if sys.platform.startswith('linux'): # linux
 elif sys.platform == "win32" or sys.platform == "cygwin": # Windows...
 	primer3_path = getprimer_path + "/bin/primer3_core.exe"
 	muscle_path = getprimer_path + "/bin/muscle.exe"
-
+elif sys.platform == "win32" or sys.platform == "darwin": # Windows...
+        primer3_path = getprimer_path + "/bin/primer3_core_darwin64"
+        muscle_path = getprimer_path + "/bin/muscle3.8.31_i86darwin64"
 # other variables
 if not out:
 	out = 'selected_primers_for_' + groupname + ".txt"
@@ -612,9 +619,12 @@ def testpair(leftlist, rightlist):
 						line9 = "="
 						p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8, line9]) + "\n")
 
-testpair(newleftprimers, newrightprimers)
-testpair(alldifferenceleft, nodiffright)
-testpair(alldifferenceright, nodiffleft)
+testpair(alldifferenceleft, alldifferenceright)
+if len(primerpairs) < 100:
+	testpair(newleftprimers, newrightprimers)
+if len(primerpairs) < 1000:
+	testpair(alldifferenceleft, nodiffright)
+	testpair(alldifferenceright, nodiffleft)
 p3temp.close()
 
 # check to see whether no good primer pairs found
