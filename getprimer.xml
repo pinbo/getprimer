@@ -1,0 +1,84 @@
+<tool id="GetPrimer" name="Homeolog Specific Primer Design">
+  <description>for homeolog sequences in a fasta file</description>
+  <command interpreter="python">getprimer2.py -i $input -s $min_size -l $max_size -g $targets -v $overlap -f 1 -o $output</command>
+  
+  <inputs>
+    <param format="fasta" name="input" type="data" label="Homeolog sequences (a fasta file with all the homeolog sequences)"/>
+    <param name="min_size" size="4" type="integer" value="300" label="Minimum product size"/>
+    <param name="max_size" size="4" type="integer" value="500" label="Maximum product size"/>
+    <param name="targets" size="100" type="text" value="specific_primers.txt" label="Primer target sequence name(s) (Separated with commas)"/>
+    <param name="overlap" size="100" type="text" value="0-1" label="Check whether primers across these position ranges (Separated with commas, such as 59-60,300-400)"/>
+  </inputs>
+
+  <outputs>
+    <data format="tabular" name="output">
+        <discover_datasets pattern="primer3" format="txt" directory="." visible="true" />
+		<discover_datasets pattern="temp_primer_pair_check" format="txt" directory="." visible="true" />
+		<discover_datasets pattern="alignment_raw.fa" format="fasta" directory="." visible="true" />
+    </data>
+</outputs>
+  
+  <tests>
+    <test>
+      <param name="input" value="sequence.fa"/>
+      <param name="targets" value="Chr-B2.2,Chr-B2.3"/>
+      <param name="overlap" value="59-60,300-400"/>
+      <output name="output" file="primers_for_B2.2_2.3.txt"/>
+    </test>
+  </tests>
+
+  <help>
+
+**OVERVIEW**
+
+Python script to design genome or group specific primers using Muscle and Primer3.
+
+For example:
+
+I have a gene that has both homeologs and paralogs in wheat. Let's say the gene is CG. It has 3 paralogs in each wheat genome, and 3 homeologs across genomes:
+A genome: CG-A1, CG-A2, CG-A3
+B genome: CG-B1, CG-B2, CG-B3
+D genome: CG-D1, CG-D2, CG-D3
+
+I want primers to amplify homeologs but not paralogs, e.g. one pair of primers to only amplify CG-A1, CG-B1 and CG-D1, one pair of primers to only amplify CG-A2, CG-B2 and CG-D2, and one pair of primers to only amplify CG-A3, CG-B3 and CG-D3.
+
+This python script with Primer3 can design primers that can only amplify one group of sequences but not the others.
+
+**Command line example**
+
+getprimer2.py -i sequence.fa -s 100 -l 500 -g Chr-B2.2,Chr-B2.3 -v 59-60,300-400 -f 1 -o primers_for_B2.2_2.3.txt
+
+
+**Output**
+
+index: primer pair index
+product_size: product size
+primerID: primer ID for left and right primers
+type: left or right primer
+start: primer start position on the template (the target sequence)
+end: primer end position on the template (the target sequence)
+length: primer length
+Tm: primer melting temperature
+GCcontent: primer GC content
+any: The self-complementarity score of the oligo or primer (taken as a measure of its tendency to anneal to itself or form secondary structure).
+3': The 3' self-complementarity of the primer or oligo (taken as a measure of its tendency to form a primer-dimer with itself).
+hairpin: The calculated value of the melting temperature of the most stable hairpin structure of the primer or oligo.
+primer_nvar: total variation in the primer from the rest of sequences
+3'Diff: whether the 3' end is different from at least 1 other sequence
+DiffAll: whether the primer can differ all other sequences
+DifNumber: how many sequences this primer can differ
+primer_score: primer specificity score. The higher score, the better to differ other sequences.
+primer_seq: primer sequence
+ReverseComplement: Reverse Complement sequence of the right primer
+penalty: primer penalty. The smaller the better.
+compl_any: the tendency of the left primer to bind to the right primer
+compl_end: tries to bind the 3'-END of the left primer to the right primer and scores the best binding it can find.
+primerpair_score: primer pair specificity score.
+primer_diff15: number of variation with each of the other sequences in the first 15 bases from the 3' end
+primer_diff4: number of variation with each of the other sequences in the first 4 bases from the 3' end
+across_overlap: whether the primer across the range set by the user.
+
+
+  </help>
+
+</tool>
