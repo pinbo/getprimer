@@ -69,6 +69,8 @@
 # add an galaxy tool xml file getprimer.xml
 # add more primer3 options
 
+# 4/25/2017
+# modified the fasta name processing so it can extract only the sequence identifier but not the comments after the first space.
 
 ### Imported
 from subprocess import call
@@ -212,8 +214,9 @@ fasta = {} # dictionary for alignment
 
 with open(RawAlignFile) as file_one:
 	for line in file_one:
+		line = line.strip()
 		if line.startswith(">"):
-			sequence_name = line.rstrip().lstrip(">")
+			sequence_name = line.split()[0].lstrip(">")
 		else:
 			fasta.setdefault(sequence_name, "")
 			fasta[sequence_name] += line.rstrip()
