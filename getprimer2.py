@@ -65,6 +65,11 @@
 # removed option "-p" for script path
 # loosed the criteria to 1) 1 mismatch in the first 4 3'-termini bases or 4 mismatches in the last 15 3'-termini base
 
+# 4/24/2017
+# add an galaxy tool xml file getprimer.xml
+# add more primer3 options
+
+
 ### Imported
 from subprocess import call
 import getopt, sys, os
@@ -77,7 +82,7 @@ getprimer.py
 	-l <product max size>
 	-g <seqID1,seqID2>
 	-r <range limit: where the differences should be in the primer from 3' end, default 10>
-	-o <output file name>"
+	-o <output file name>
 	-v <primer overlap region (such as intron): n1-n2,n3-n4>
 	-f <1 or 0, default 1: filter the output>
 	-a <primer_pair_compl_any_threshold: default 10>
@@ -96,6 +101,12 @@ primer_pair_compl_any_threshold = 10.0 # web_v4 default 45
 primer_pair_compl_end_threshold = 10.0 # web_v4 default 35
 product_min = 100
 product_max = 1000
+minTm = 57
+maxTm = 62
+maxTmdiff = 5
+minSize = 18
+maxSize = 25
+
 getprimer_path = os.path.dirname(os.path.realpath(__file__))
 rangelimit = 15 # only find difference in the first a few nt from 3' end of each primer
 out = ""
@@ -106,7 +117,7 @@ filter_flag = 0 # whether to filter the primers to remove primers in the same po
 print "Parsing command line options"
 
 try:
-	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:a:e:c:h", ["help"])
+	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:a:e:c:h", ["help", "mintm=", "maxtm=", "minsize=", "maxsize=", "maxtmdiff="])
 except getopt.GetoptError as err:
 	# print help information and exit:
 	print str(err)  # will print something like "option -a not recognized"
@@ -146,6 +157,18 @@ for o, a in opts:
 		for rr in regions:
 			r1, r2 = rr.split("-")
 			overlap_region += range(int(r1), int(r2)+1)
+	elif o in ("--mintm"):
+		minTm = int(a)
+	elif o in ("--mintm"):
+		minTm = int(a)
+	elif o in ("--maxtm"):
+		maxTm = int(a)
+	elif o in ("--minsize"):
+		minSize = int(a)
+	elif o in ("--maxsize"):
+		maxSize = int(a)
+	elif o in ("--maxtmdiff"):
+		maxTmdiff = int(a)
 	else:
 		assert False, "unhandled option"
 print "OPtions done"
@@ -291,7 +314,12 @@ for k, v in fasta.items():
 	line2 = "SEQUENCE_TEMPLATE=" + v.replace("-","") # remove "-" in the alignment seq
 	line3 = "PRIMER_PRODUCT_OPT_SIZE=" + str(product_opt)
 	line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
-	line5 = "="
+	line5 = "PRIMER_MIN_SIZE=" + str(minSize)
+	line6 = "PRIMER_MAX_SIZE=" + str(maxSize)
+	line7 = "PRIMER_MIN_TM=" + str(minTm)
+	line8 = "PRIMER_MAX_TM=" + str(maxTm)
+	line9 = "PRIMER_PAIR_MAX_DIFF_TM=" + str(maxTmdiff)
+	line10 = "="
 	p3input.write("\n".join([line1, line2, line3, line4, line5]) + "\n")
 """
 # I only need to use the output from the first target
@@ -302,8 +330,13 @@ line3 = "PRIMER_FIRST_BASE_INDEX=1"
 line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
 line5 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + getprimer_path + "/bin/primer3_config/"
 line6 = "PRIMER_NUM_RETURN=10000"
-line7 = "="
-p3input.write("\n".join([line0, line1, line2, line4, line5, line6, line7]) + "\n")
+line7 = "PRIMER_MIN_SIZE=" + str(minSize)
+line8 = "PRIMER_MAX_SIZE=" + str(maxSize)
+line9 = "PRIMER_MIN_TM=" + str(minTm)
+line10 = "PRIMER_MAX_TM=" + str(maxTm)
+line11 = "PRIMER_PAIR_MAX_DIFF_TM=" + str(maxTmdiff)
+line12 = "="
+p3input.write("\n".join([line0, line1, line2, line4, line5, line6, line7, line8, line9, line10, line11, line12]) + "\n")
 
 p3input.close()
 
@@ -581,7 +614,7 @@ for pl in newleftprimers:
 """
 
 def testpair(leftlist, rightlist):
-	global product_max, product_min, primernumber, primerpairs, p3temp
+	global product_max, product_min, primernumber, primerpairs, p3temp, maxTmdiff
 	for pl in leftlist:
 		for pr in rightlist:
 			alldifsite15 = [int(max(x) > 4) for x in zip(pl.difsite, pr.difsite)] # at least 5 differences
@@ -589,7 +622,7 @@ def testpair(leftlist, rightlist):
 			alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
 			if min(alldifsite) > 0 and pl.end < pr.start and abs(pl.tm - pr.tm) < 1.0:
 				productsize = pr.end - pl.start + 1
-				if productsize >= product_min and productsize <= product_max:
+				if productsize >= product_min and productsize <= product_max and abs(pl.tm - pr.tm) <= maxTmdiff:
 					primernumber += 1
 					ppname = str(primernumber)
 					pp = PrimerPair()
