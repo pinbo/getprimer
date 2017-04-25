@@ -4,15 +4,15 @@
   
   <inputs>
     <param format="fasta" name="input" type="data" label="Homeolog sequences (a fasta file with all the homeolog sequences)"/>
+    <param name="targets" size="100" type="text" value="" label="Primer target sequence name(s) (Separated with commas)"/>
+    <param name="overlap" size="100" type="text" value="0-1" label="Check whether primers across these position ranges (Separated with commas, such as 59-60,300-400)"/>
     <param name="min_size" size="4" type="integer" value="300" label="Minimum product size"/>
     <param name="max_size" size="4" type="integer" value="500" label="Maximum product size"/>
 	<param name="mintm" size="4" type="integer" value="57" label="Minimum primer Tm"/>
 	<param name="maxtm" size="4" type="integer" value="62" label="Maximum primer Tm"/>
 	<param name="maxtmdiff" size="4" type="integer" value="5" label="Maximum Tm differences between left and right primers"/>
 	<param name="minsize" size="4" type="integer" value="18" label="Minimum primer size"/>
-	<param name="maxsize" size="4" type="integer" value="25" label="Maximum primer size"/>
-    <param name="targets" size="100" type="text" value="" label="Primer target sequence name(s) (Separated with commas)"/>
-    <param name="overlap" size="100" type="text" value="0-1" label="Check whether primers across these position ranges (Separated with commas, such as 59-60,300-400)"/>
+	<param name="maxsize" size="4" type="integer" value="25" label="Maximum primer size"/>    
   </inputs>
 
   <outputs>
@@ -48,39 +48,74 @@ I want primers to amplify homeologs but not paralogs, e.g. one pair of primers t
 
 This python script with Primer3 can design primers that can only amplify one group of sequences but not the others.
 
+------
+
 **Command line example**
 
 getprimer2.py -i sequence.fa -s 100 -l 500 -g Chr-B2.2,Chr-B2.3 -v 59-60,300-400 -f 1 -o primers_for_B2.2_2.3.txt
 
+------
 
 **Output**
 
-index: primer pair index
-product_size: product size
-primerID: primer ID for left and right primers
-type: left or right primer
-start: primer start position on the template (the target sequence)
-end: primer end position on the template (the target sequence)
-length: primer length
-Tm: primer melting temperature
-GCcontent: primer GC content
-any: The self-complementarity score of the oligo or primer (taken as a measure of its tendency to anneal to itself or form secondary structure).
-3': The 3' self-complementarity of the primer or oligo (taken as a measure of its tendency to form a primer-dimer with itself).
-hairpin: The calculated value of the melting temperature of the most stable hairpin structure of the primer or oligo.
-primer_nvar: total variation in the primer from the rest of sequences
-3'Diff: whether the 3' end is different from at least 1 other sequence
-DiffAll: whether the primer can differ all other sequences
-DifNumber: how many sequences this primer can differ
-primer_score: primer specificity score. The higher score, the better to differ other sequences.
-primer_seq: primer sequence
-ReverseComplement: Reverse Complement sequence of the right primer
-penalty: primer penalty. The smaller the better.
-compl_any: the tendency of the left primer to bind to the right primer
-compl_end: tries to bind the 3'-END of the left primer to the right primer and scores the best binding it can find.
-primerpair_score: primer pair specificity score.
-primer_diff15: number of variation with each of the other sequences in the first 15 bases from the 3' end
-primer_diff4: number of variation with each of the other sequences in the first 4 bases from the 3' end
-across_overlap: whether the primer across the range set by the user.
+There will be 3 outputs:
+* Designed Primers
+* Primer3 input file
+* Multiple sequence alignment file
+
+Titles in the primer output file:
+
+**index**: primer pair index
+
+**product_size**: product size
+
+**primerID**: primer ID for left and right primers
+
+**type**: left or right primer
+
+**start**: primer start position on the template (the target sequence)
+
+**end**: primer end position on the template (the target sequence)
+
+**length**: primer length
+
+**Tm**: primer melting temperature
+
+**GCcontent**: primer GC content
+
+**any**: The self-complementarity score of the oligo or primer (taken as a measure of its tendency to anneal to itself or form secondary structure).
+
+**3'**: The 3' self-complementarity of the primer or oligo (taken as a measure of its tendency to form a primer-dimer with itself).
+
+**hairpin**: The calculated value of the melting temperature of the most stable hairpin structure of the primer or oligo.
+
+**primer_nvar**: total variation in the primer from the rest of sequences
+
+**3'Diff**: whether the 3' end is different from at least 1 other sequence
+
+**DiffAll**: whether the primer can differ all other sequences
+
+**DifNumber**: how many sequences this primer can differ
+
+**primer_score**: primer specificity score. The higher score, the better to differ other sequences.
+
+**primer_seq**: primer sequence
+
+**ReverseComplement**: Reverse Complement sequence of the primer
+
+**penalty**: primer penalty. The smaller the better.
+
+**compl_any**: the tendency of the left primer to bind to the right primer
+
+**compl_end**: tries to bind the 3'-END of the left primer to the right primer and scores the best binding it can find.
+
+**primerpair_score**: primer pair specificity score.
+
+**primer_diff15**: number of variation with each of the other sequences in the first 15 bases from the 3' end
+
+**primer_diff4**: number of variation with each of the other sequences in the first 4 bases from the 3' end
+
+**across_overlap**: whether the primer across the range set by the user.
 
 For more information go to : https://github.com/pinbo/getprimer
   </help>

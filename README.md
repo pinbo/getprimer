@@ -50,6 +50,11 @@ getprimer.py
 	-e <primer_pair_compl_end_threshold: default 10>
 	-c <primer_pair_score_threshold: default 50>
 	-h help
+	--mintm <primer min Tm, default 57>
+	--maxtm <primer max Tm, default 62>
+	--minsize <primer min size, default 18>
+	--maxsize <primer max size, default 25>
+	--maxtmdiff <max Tm difference between left and right primers>
 ```
 1. Download the full depository to your computer (it has 64bit muscle and primer3_core working in Ubuntu 16.04).
 2. Download and/or Recompile muscle or primer3_core from source the if they do not work in your computer. Rename them as "muscle" and "primer3_core" (without .exe) and put them in the bin sub-folder (replace the existed ones).

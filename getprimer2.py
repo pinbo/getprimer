@@ -77,7 +77,6 @@ import getopt, sys, os
 usage="""
 getprimer.py
 	-i <sequence.fa>
-	-p <GetPrimer path>
 	-s <product min size>
 	-l <product max size>
 	-g <seqID1,seqID2>
@@ -88,6 +87,11 @@ getprimer.py
 	-a <primer_pair_compl_any_threshold: default 10>
 	-e <primer_pair_compl_end_threshold: default 10>
 	-c <primer_pair_score_threshold: default 50>
+	--mintm <primer min Tm, default 57>
+	--maxtm <primer max Tm, default 62>
+	--minsize <primer min size, default 18>
+	--maxsize <primer max size, default 25>
+	--maxtmdiff <max Tm difference between left and right primers>
 """
 
 
@@ -308,20 +312,7 @@ for i in range(alignlen):
 # primer3 inputfile
 primer3input = "primer3.input"
 p3input = open(primer3input, 'w')
-"""
-for k, v in fasta.items():
-	line1 = "SEQUENCE_ID=" + k
-	line2 = "SEQUENCE_TEMPLATE=" + v.replace("-","") # remove "-" in the alignment seq
-	line3 = "PRIMER_PRODUCT_OPT_SIZE=" + str(product_opt)
-	line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
-	line5 = "PRIMER_MIN_SIZE=" + str(minSize)
-	line6 = "PRIMER_MAX_SIZE=" + str(maxSize)
-	line7 = "PRIMER_MIN_TM=" + str(minTm)
-	line8 = "PRIMER_MAX_TM=" + str(maxTm)
-	line9 = "PRIMER_PAIR_MAX_DIFF_TM=" + str(maxTmdiff)
-	line10 = "="
-	p3input.write("\n".join([line1, line2, line3, line4, line5]) + "\n")
-"""
+
 # I only need to use the output from the first target
 line0 = "PRIMER_TASK=pick_primer_list"
 line1 = "SEQUENCE_ID=" + mainID
@@ -336,6 +327,7 @@ line9 = "PRIMER_MIN_TM=" + str(minTm)
 line10 = "PRIMER_MAX_TM=" + str(maxTm)
 line11 = "PRIMER_PAIR_MAX_DIFF_TM=" + str(maxTmdiff)
 line12 = "="
+
 p3input.write("\n".join([line0, line1, line2, line4, line5, line6, line7, line8, line9, line10, line11, line12]) + "\n")
 
 p3input.close()
@@ -572,46 +564,7 @@ def merge_dict(dx, dy):
 		else:
 			newdict[key] = dy[key]
 	return(newdict)
-"""
-for pl in newleftprimers:
-	for pr in newrightprimers:
-		alldifsite15 = [int(max(x) > 4) for x in zip(pl.difsite, pr.difsite)] # at least 5 differences
-		alldifsite4 = [int(max(x) > 1) for x in zip(pl.difsite4, pr.difsite4)] # at least 2 differences
-		alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
 
-		if min(alldifsite) > 0 and pl.end < pr.start and abs(pl.tm - pr.tm) < 1.0:
-			#print primernumber
-			productsize = pr.end - pl.start + 1
-			if productsize >= product_min and productsize <= product_max:
-				primernumber += 1
-				ppname = str(primernumber)
-				pp = PrimerPair()
-				pp.name = ppname
-				pp.left = pl
-				pp.right = pr
-				pp.product_size = productsize
-				pp.difsite = alldifsite15
-				pp.difsite4 = alldifsite4
-				# get score below
-				diffmerge = merge_dict(pl.difsitedict, pr.difsitedict)
-				for k, v in diffmerge.items():
-					difnum = sum(i > 0 for i in v) # how many sequences this difpos can differ
-					tt = sum(i > 1 for i in v) # to account for the same variations between left and right primers
-					#pp.score += (difnum / len(ids) + 1) * 100 / (k + 1)
-					pp.score += (float(difnum) / len(ids) * 100 + float(tt) / len(ids) * 50)/ k
-				if pp.score >= primer_pair_score_threshold:
-					primerpairs[ppname] = pp
-					line1 = "SEQUENCE_ID=" + ppname
-					line2 = "PRIMER_TASK=check_primers"
-					line3 = "PRIMER_EXPLAIN_FLAG=1"
-					line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
-					line5 = "SEQUENCE_TEMPLATE=" + seqtemplate
-					line6 =  "SEQUENCE_PRIMER=" + pl.seq
-					line7 = "SEQUENCE_PRIMER_REVCOMP=" + ReverseComplement(pr.seq)
-					line8 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + getprimer_path + "/bin/primer3_config/"
-					line9 = "="
-					p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8, line9]) + "\n")
-"""
 
 def testpair(leftlist, rightlist):
 	global product_max, product_min, primernumber, primerpairs, p3temp, maxTmdiff
