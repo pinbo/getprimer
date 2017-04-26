@@ -482,8 +482,8 @@ for pp in leftprimers:
 			if min(pp.difsite) > 0:
 				#alldifferenceleft.append(pp)
 				pp.difall = "YES"
-			alldifsite15 = [int(x > 4) for x in pp.difsite] # at least 5 differences
-			alldifsite4 = [int(x > 1) for x in pp.difsite4] # at least 2 differences
+			alldifsite15 = [int(x > 3) for x in pp.difsite] # at least 4 differences
+			alldifsite4 = [int(x > 0) for x in pp.difsite4] # at least 1 differences
 			alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
 			if min(alldifsite) > 0:
 				alldifferenceleft.append(pp)
@@ -531,8 +531,8 @@ for pp in rightprimers:
 			if min(pp.difsite) > 0:
 				#alldifferenceright.append(pp)
 				pp.difall = "YES"
-			alldifsite15 = [int(x > 4) for x in pp.difsite] # at least 5 differences
-			alldifsite4 = [int(x > 1) for x in pp.difsite4] # at least 2 differences
+			alldifsite15 = [int(x > 3) for x in pp.difsite] # at least 4 differences
+			alldifsite4 = [int(x > 0) for x in pp.difsite4] # at least 1 differences
 			alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
 			if min(alldifsite) > 0:
 				alldifferenceright.append(pp)
@@ -573,12 +573,12 @@ def testpair(leftlist, rightlist):
 	global product_max, product_min, primernumber, primerpairs, p3temp, maxTmdiff
 	for pl in leftlist:
 		for pr in rightlist:
-			alldifsite15 = [int(max(x) > 4) for x in zip(pl.difsite, pr.difsite)] # at least 5 differences
-			alldifsite4 = [int(max(x) > 1) for x in zip(pl.difsite4, pr.difsite4)] # at least 2 differences
+			alldifsite15 = [int(max(x) > 3) for x in zip(pl.difsite, pr.difsite)] # at least 4 differences
+			alldifsite4 = [int(max(x) > 0) for x in zip(pl.difsite4, pr.difsite4)] # at least 1 differences
 			alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
-			if min(alldifsite) > 0 and pl.end < pr.start and abs(pl.tm - pr.tm) < 1.0:
+			if min(alldifsite) > 0 and pl.end < pr.start and abs(pl.tm - pr.tm) <= maxTmdiff:
 				productsize = pr.end - pl.start + 1
-				if productsize >= product_min and productsize <= product_max and abs(pl.tm - pr.tm) <= maxTmdiff:
+				if productsize >= product_min and productsize <= product_max:
 					primernumber += 1
 					ppname = str(primernumber)
 					pp = PrimerPair()
