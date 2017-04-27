@@ -5,11 +5,11 @@
   <inputs>
     <param format="fasta" name="input" type="data" label="Homeolog sequences (a fasta file with all the homeolog sequences)"/>
     <param name="targets" size="100" type="text" value="" label="Primer target sequence name(s) (Separated with commas)"/>
-    <param name="blast" type="select" label="Blast the output primers in the wheat genome?" help="If yes, will blast against Chinese_Spring_v1.0_pseudomolecules">
+    <param name="blast" type="select" label="Blast the output primers in the wheat genome?" help="If yes, will blast against Chinese_Spring_v1.0_pseudomolecules.">
         <option value="1">Yes</option>
         <option value="0">No</option>
     </param>
-    <param name="overlap" size="100" type="text" value="0-1" label="Check whether primers across these position ranges (Separated with commas, such as 59-60,300-400)"/>
+    <param name="overlap" size="100" type="text" value="0-1" label="Check whether primers across these position ranges (Separated with commas, such as 59-60,300-400)" help="The default 0-1 will do nothing. The input must be a range, eg. n1-n2. Change the values here to check other ranges"/>
     <param name="min_size" size="4" type="integer" value="300" label="Minimum product size"/>
     <param name="max_size" size="4" type="integer" value="500" label="Maximum product size"/>
 	<param name="mintm" size="4" type="integer" value="57" label="Minimum primer Tm"/>
@@ -66,15 +66,21 @@ getprimer2.py -i sequence.fa -s 100 -l 500 -g Chr-B2.2,Chr-B2.3 -v 59-60,300-400
 
 **Output**
 
-There will be 3 outputs:
+There will be 3 outputs: 1. Designed Primers; 2. Primer3 input file; 3. Multiple sequence alignment file; 4. Primer blast output
 
-* Designed Primers
+------
 
-* Primer3 input file
+**Titles in the blast output file:**
 
-* Multiple sequence alignment file
+1: query id, subject id, % identity, alignment length, mismatches, gap opens, 
 
-Titles in the primer output file:
+7: q. start, q. end, s. start, s. end, evalue, bit score
+
+13: q. sequence, s. sequence, q. length s. length
+
+------
+
+**Titles in the primer output file**
 
 **index**: primer pair index
 
@@ -128,7 +134,9 @@ Titles in the primer output file:
 
 **across_overlap**: whether the primer across the range set by the user.
 
-**matched_chromosomes**:
+**matched_chromosomes**: chromosomes that on the primer has at least 5 perfect matches in the 3' end
+
+------
 
 For more information go to : https://github.com/pinbo/getprimer
   </help>

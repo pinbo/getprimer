@@ -672,7 +672,7 @@ for pp in pp_vector:
 			if pl.end not in exist_left or pr.start not in exist_right:
 				#forblast.write(">" + pl.name + "\n" + pl.seq + "\n>" + pr.name + "\n" + pr.seq + "\n")
 				primer_for_blast[pl.name] = pl.seq
-				primer_for_blast[pr.name] = pr.seq
+				primer_for_blast[pr.name] = ReverseComplement(pr.seq) # right prmer sequences is actually its RC
 				final_primers.append(pp)
 				#outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
 				#outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
@@ -693,20 +693,20 @@ for k, v in primer_for_blast.items():
 	forblast.write(">" + k + "\n" + v + "\n")
 forblast.close()
 
-blast_hit = {} # matched chromosomes for primers: at least perfect match for the first 10 bp from 3'
+blast_hit = {} # matched chromosomes for primers: at least perfect match for the first 5 bp from 3'
 ### for blast
 reference = "/Library/WebServer/Documents/blast/db/nucleotide/161010_Chinese_Spring_v1.0_pseudomolecules.fasta"
 if blast and len(primer_for_blast) < 100:
-	cmd2 = 'blastn -task blastn -db ' + reference + ' -query for_blast.fa -outfmt "6 std qseq sseq slen" -num_threads 3 -out blast_out.txt'
+	cmd2 = 'blastn -task blastn -db ' + reference + ' -query for_blast.fa -outfmt "6 std qseq sseq qlen slen" -num_threads 3 -out blast_out.txt'
 	print "Step 2: Blast command:\n", cmd2
 	call(cmd2, shell=True)
 	# process blast file
 	# blast fields
-	# IWB50236_7A_R	IWGSC_CSS_7DS_scaff_3919748	98.718	78	1	0	24	101	4891	4968	1.55e-30	138	CTCATCAAATGATTCAAAAATATCGATRCTTGGCTGGTGTATCGTGCAGACGACAGTTCGTCCGGTATCAACAGCATT	CTCATCAAATGATTCAAAAATATCGATGCTTGGCTGGTGTATCGTGCAGACGACAGTTCGTCCGGTATCAACAGCATT	5924
+	# IWB50236_7A_R	IWGSC_CSS_7DS_scaff_3919748	98.718	78	1	0	24	101	4891	4968	1.55e-30	138	CTCATCAAATGATTCAAAAATATCGATRCTTGGCTGGTGTATCGTGCAGACGACAGTTCGTCCGGTATCAACAGCATT	CTCATCAAATGATTCAAAAATATCGATGCTTGGCTGGTGTATCGTGCAGACGACAGTTCGTCCGGTATCAACAGCATT	101 5924
 	# Fields: 
 	# 1: query id, subject id, % identity, alignment length, mismatches, gap opens, 
 	# 7: q. start, q. end, s. start, s. end, evalue, bit score
-	# 13: q. sequence, s. sequence, s. length
+	# 13: q. sequence, s. sequence, q. length s. length
 	for line in open("blast_out.txt"):
 		if line.startswith('#'):
 			continue
@@ -714,7 +714,8 @@ if blast and len(primer_for_blast) < 100:
 		query, subject, pct_identity, align_length= fields[:4]
 		qstart, qstop, sstart, sstop = [int(x) for x in fields[6:10]]
 		qseq, sseq = fields[12:14]
-		if qstart == 1 and qseq[:5] == sseq[:5]: # if the alignment from the 1st position and at leat the first 5 matches exactly
+		qlen = int(fields[14])
+		if qstop == qlen and qseq[-5:] == sseq[-5:]: # if the alignment from the 3' 1st position and at leat the first 5 matches exactly
 			blast_hit[query] = blast_hit.setdefault(query, "") + ";" + subject + ":" + str(sstart)
 
 ## write output
