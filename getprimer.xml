@@ -1,10 +1,14 @@
 <tool id="GetPrimer" name="Homeolog Specific Primer Design">
   <description>for homeolog sequences in a fasta file</description>
-  <command interpreter="python">getprimer2.py -i $input -s $min_size -l $max_size -g $targets -v $overlap -f 1 -o $output --mintm $mintm --maxtm $maxtm --maxtmdiff $maxtmdiff --minsize $minsize --maxsize $maxsize</command>
+  <command interpreter="python">getprimer2.py -i $input -s $min_size -l $max_size -g $targets -v $overlap -f 1 -o $output --mintm $mintm --maxtm $maxtm --maxtmdiff $maxtmdiff --minsize $minsize --maxsize $maxsize -b $blast</command>
   
   <inputs>
     <param format="fasta" name="input" type="data" label="Homeolog sequences (a fasta file with all the homeolog sequences)"/>
     <param name="targets" size="100" type="text" value="" label="Primer target sequence name(s) (Separated with commas)"/>
+    <param name="blast" type="select" label="Blast the output primers in the wheat genome?" help="If yes, will blast against Chinese_Spring_v1.0_pseudomolecules">
+        <option value="1">Yes</option>
+        <option value="0">No</option>
+    </param>
     <param name="overlap" size="100" type="text" value="0-1" label="Check whether primers across these position ranges (Separated with commas, such as 59-60,300-400)"/>
     <param name="min_size" size="4" type="integer" value="300" label="Minimum product size"/>
     <param name="max_size" size="4" type="integer" value="500" label="Maximum product size"/>
@@ -19,6 +23,7 @@
     <data format="tabular" name="output">
         <discover_datasets pattern="primer3.input" format="txt" directory="." visible="true" />
 		<discover_datasets pattern="alignment_raw.fa" format="fasta" directory="." visible="true" />
+		<discover_datasets pattern="blast_out.txt" format="tabular" directory="." visible="true" />
     </data>
 </outputs>
   
@@ -40,8 +45,11 @@ Python script to design genome or group specific primers using Muscle and Primer
 For example:
 
 I have a gene that has both homeologs and paralogs in wheat. Let's say the gene is CG. It has 3 paralogs in each wheat genome, and 3 homeologs across genomes:
+
 A genome: CG-A1, CG-A2, CG-A3
+
 B genome: CG-B1, CG-B2, CG-B3
+
 D genome: CG-D1, CG-D2, CG-D3
 
 I want primers to amplify homeologs but not paralogs, e.g. one pair of primers to only amplify CG-A1, CG-B1 and CG-D1, one pair of primers to only amplify CG-A2, CG-B2 and CG-D2, and one pair of primers to only amplify CG-A3, CG-B3 and CG-D3.
@@ -59,8 +67,11 @@ getprimer2.py -i sequence.fa -s 100 -l 500 -g Chr-B2.2,Chr-B2.3 -v 59-60,300-400
 **Output**
 
 There will be 3 outputs:
+
 * Designed Primers
+
 * Primer3 input file
+
 * Multiple sequence alignment file
 
 Titles in the primer output file:
@@ -116,6 +127,8 @@ Titles in the primer output file:
 **primer_diff4**: number of variation with each of the other sequences in the first 4 bases from the 3' end
 
 **across_overlap**: whether the primer across the range set by the user.
+
+**matched_chromosomes**:
 
 For more information go to : https://github.com/pinbo/getprimer
   </help>
