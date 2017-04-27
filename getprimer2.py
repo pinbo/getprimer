@@ -72,6 +72,10 @@
 # 4/25/2017
 # modified the fasta name processing so it can extract only the sequence identifier but not the comments after the first space.
 
+# 4/26/2017
+# add blast check options
+
+
 ### Imported
 from subprocess import call
 import getopt, sys, os
@@ -89,6 +93,7 @@ getprimer.py
 	-a <primer_pair_compl_any_threshold: default 10>
 	-e <primer_pair_compl_end_threshold: default 10>
 	-c <primer_pair_score_threshold: default 50>
+	-b <blast all produced primers against the genomes: 1 for YES and 0 for NO, default is NO>
 	--mintm <primer min Tm, default 57>
 	--maxtm <primer max Tm, default 62>
 	--minsize <primer min size, default 18>
@@ -112,6 +117,7 @@ maxTm = 62
 maxTmdiff = 5
 minSize = 18
 maxSize = 25
+blast = 0 # whether blast to check the primer specificity
 
 getprimer_path = os.path.dirname(os.path.realpath(__file__))
 rangelimit = 15 # only find difference in the first a few nt from 3' end of each primer
@@ -123,7 +129,7 @@ filter_flag = 0 # whether to filter the primers to remove primers in the same po
 print "Parsing command line options"
 
 try:
-	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:a:e:c:h", ["help", "mintm=", "maxtm=", "minsize=", "maxsize=", "maxtmdiff="])
+	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:a:e:c:b:h", ["help", "mintm=", "maxtm=", "minsize=", "maxsize=", "maxtmdiff="])
 except getopt.GetoptError as err:
 	# print help information and exit:
 	print str(err)  # will print something like "option -a not recognized"
@@ -158,6 +164,8 @@ for o, a in opts:
 		primer_pair_compl_end_threshold = int(a)
 	elif o in ("-c"):
 		primer_pair_score_threshold = int(a)
+	elif o in ("-b"):
+		blast = int(a)
 	elif o in ("-v"):
 		regions = a.split(",")
 		for rr in regions:
@@ -198,7 +206,7 @@ elif sys.platform == "win32" or sys.platform == "darwin": # Windows...
 # other variables
 if not out:
 	out = 'selected_primers_for_' + groupname + ".txt"
-outfile = open(out, 'w') # output file
+
 #########################
 # STEP 0: create alignment file and primer3output file
 
@@ -643,7 +651,8 @@ with open(tempout) as infile:
 		if "PRIMER_PAIR_0_COMPL_END" in line:
 			primerpairs[seqid].compl_end = line.split("=")[1]
 
-outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\tprimerpair_score\tprimer_diff15\tprimer_diff4\tacross_overlap\n")
+outfile = open(out, 'w') # output file
+outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\tprimerpair_score\tprimer_diff15\tprimer_diff4\tacross_overlap\tmatched_chromosomes\n")
 
 print "primer_pair_compl_any_threshold ", primer_pair_compl_any_threshold
 print "primer_pair_compl_end_threshold ", primer_pair_compl_end_threshold
@@ -653,21 +662,68 @@ pp_vector = primerpairs.values()
 pp_vector.sort(key=lambda x: x.score, reverse=True)
 exist_left = []
 exist_right = []
+final_primers = [] # for final output
+primer_for_blast = {} # primer sequences for blast
 for pp in pp_vector:
 	if pp.compl_any != "NA" and float(pp.compl_any) <= primer_pair_compl_any_threshold and float(pp.compl_end) <= primer_pair_compl_end_threshold:
 		pl = pp.left
 		pr = pp.right
 		if filter_flag:
 			if pl.end not in exist_left or pr.start not in exist_right:
-				outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
-				outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
+				#forblast.write(">" + pl.name + "\n" + pl.seq + "\n>" + pr.name + "\n" + pr.seq + "\n")
+				primer_for_blast[pl.name] = pl.seq
+				primer_for_blast[pr.name] = pr.seq
+				final_primers.append(pp)
+				#outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
+				#outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
 				exist_left += range(pl.end - 5, pl.end + 6)
 				exist_right += range(pr.start -5, pr.start + 6)
 		else:
-			outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
-			outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
+			#forblast.write(">" + pl.name + "\n" + pl.seq + "\n>" + pr.name + "\n" + pr.seq + "\n")
+			primer_for_blast[pl.name] = pl.seq
+			primer_for_blast[pr.name] = pr.seq
+			final_primers.append(pp)
+			#outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
+			#outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
 
 #########
+#outfile.close()
+forblast = open("for_blast.fa", 'w') # for blast against the gnome
+for k, v in primer_for_blast.items():
+	forblast.write(">" + k + "\n" + v + "\n")
+forblast.close()
+
+blast_hit = {} # matched chromosomes for primers: at least perfect match for the first 10 bp from 3'
+### for blast
+reference = "/Library/WebServer/Documents/blast/db/nucleotide/161010_Chinese_Spring_v1.0_pseudomolecules.fasta"
+if blast and len(primer_for_blast) < 100:
+	cmd2 = 'blastn -task blastn -db ' + reference + ' -query for_blast.fa -outfmt "6 std qseq sseq slen" -num_threads 3 -out blast_out.txt'
+	print "Step 2: Blast command:\n", cmd2
+	call(cmd2, shell=True)
+	# process blast file
+	# blast fields
+	# IWB50236_7A_R	IWGSC_CSS_7DS_scaff_3919748	98.718	78	1	0	24	101	4891	4968	1.55e-30	138	CTCATCAAATGATTCAAAAATATCGATRCTTGGCTGGTGTATCGTGCAGACGACAGTTCGTCCGGTATCAACAGCATT	CTCATCAAATGATTCAAAAATATCGATGCTTGGCTGGTGTATCGTGCAGACGACAGTTCGTCCGGTATCAACAGCATT	5924
+	# Fields: 
+	# 1: query id, subject id, % identity, alignment length, mismatches, gap opens, 
+	# 7: q. start, q. end, s. start, s. end, evalue, bit score
+	# 13: q. sequence, s. sequence, s. length
+	for line in open("blast_out.txt"):
+		if line.startswith('#'):
+			continue
+		fields = line.split("\t")
+		query, subject, pct_identity, align_length= fields[:4]
+		qstart, qstop, sstart, sstop = [int(x) for x in fields[6:10]]
+		qseq, sseq = fields[12:14]
+		if qstart == 1 and qseq[:5] == sseq[:5]: # if the alignment from the 1st position and at leat the first 5 matches exactly
+			blast_hit[query] = blast_hit.setdefault(query, "") + ";" + subject + ":" + str(sstart)
+
+## write output
+for pp in final_primers:
+	pl = pp.left
+	pr = pp.right
+	outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap, blast_hit.setdefault(pl.name, "")]) + "\n")
+	outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap, blast_hit.setdefault(pr.name, "")]) + "\n")
+
 outfile.close()
 
 ## remove all tempotary files
