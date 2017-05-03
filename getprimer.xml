@@ -64,6 +64,11 @@ getprimer2.py -i sequence.fa -s 100 -l 500 -g Chr-B2.2,Chr-B2.3 -v 59-60,300-400
 
 ------
 
+**Input**
+
+A fasta file with all the homeolog sequences. The length of each sequence would better to be less than 2 kb. Otherwise the alignment may be not accurate and it takes longer time to finsih the job.
+------
+
 **Output**
 
 There will be 3 outputs: 1. Designed Primers; 2. Primer3 input file; 3. Multiple sequence alignment file; 4. Primer blast output
@@ -132,9 +137,9 @@ There will be 3 outputs: 1. Designed Primers; 2. Primer3 input file; 3. Multiple
 
 **primer_diff4**: number of variation with each of the other sequences in the first 4 bases from the 3' end
 
-**across_overlap**: whether the primer across the range set by the user.
+**across_overlap**: whether the primer across the range set by the user
 
-**matched_chromosomes**: chromosomes that on the primer has at least 5 perfect matches in the 3' end
+**matched_chromosomes**: chromosomes that the primer has no more than 1 mismatches in the first 4 bases from the 3' end according to the primer blast result
 
 ------
 
