@@ -697,7 +697,7 @@ blast_hit = {} # matched chromosomes for primers: at least perfect match for the
 ### for blast
 reference = "/Library/WebServer/Documents/blast/db/nucleotide/161010_Chinese_Spring_v1.0_pseudomolecules.fasta"
 if blast and len(primer_for_blast) < 100:
-	cmd2 = 'blastn -task blastn -db ' + reference + ' -query for_blast.fa -outfmt "6 std qseq sseq qlen slen" -num_threads 3 -out blast_out.txt'
+	cmd2 = 'blastn -task blastn -db ' + reference + ' -query for_blast.fa -outfmt "6 std qseq sseq qlen slen" -num_threads 3 -word_size 7 -out blast_out.txt'
 	print "Step 2: Blast command:\n", cmd2
 	call(cmd2, shell=True)
 	# process blast file
