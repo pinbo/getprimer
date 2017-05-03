@@ -67,6 +67,7 @@ getprimer2.py -i sequence.fa -s 100 -l 500 -g Chr-B2.2,Chr-B2.3 -v 59-60,300-400
 **Input**
 
 A fasta file with all the homeolog sequences. The length of each sequence would better to be less than 2 kb. Otherwise the alignment may be not accurate and it takes longer time to finsih the job.
+
 ------
 
 **Output**
