@@ -95,12 +95,12 @@ getprimer.py
 	-e <primer_pair_compl_end_threshold: default 10>
 	-c <primer_pair_score_threshold: default 50>
 	-b <blast all produced primers against the genomes: 1 for YES and 0 for NO, default is NO>
-	--mintm <primer min Tm, default 57>
+	--mintm <primer min Tm, default 58>
 	--maxtm <primer max Tm, default 62>
 	--minsize <primer min size, default 18>
-	--maxsize <primer max size, default 25>
-	--maxtmdiff <max Tm difference between left and right primers>
-	--maxhairpin <maximum hairpin score of each primer>
+	--maxsize <primer max size, default 23>
+	--maxtmdiff <max Tm difference between left and right primers, default 2>
+	--maxhairpin <maximum hairpin score of each primer, default 24>
 """
 
 
@@ -119,7 +119,7 @@ maxTm = 62
 maxTmdiff = 2
 minSize = 18
 maxSize = 23
-maxhairpin = 24 # web_v4 default is 24. primer3 default is 47
+maxhairpin = 35 # web_v4 default is 24. primer3 default is 47
 blast = 0 # whether blast to check the primer specificity
 
 getprimer_path = os.path.dirname(os.path.realpath(__file__))
@@ -627,7 +627,7 @@ if len(primerpairs) < 100:
 	testpair(newleftprimers, newrightprimers)
 if len(primerpairs) < 1000:
 	testpair(alldifferenceleft, nodiffright)
-	testpair(alldifferenceright, nodiffleft)
+	testpair(nodiffleft, alldifferenceright)
 p3temp.close()
 
 # check to see whether no good primer pairs found
