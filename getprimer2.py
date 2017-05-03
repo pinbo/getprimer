@@ -75,6 +75,7 @@
 # 4/26/2017
 # add blast check options
 
+# 5/3/2017: 1. set word_size of blastn to 7; 2. set potential target of primers in the blast to: less than 2 mismatches in the first 4 3' bases.
 
 ### Imported
 from subprocess import call
@@ -695,6 +696,11 @@ forblast.close()
 
 blast_hit = {} # matched chromosomes for primers: at least perfect match for the first 5 bp from 3'
 ### for blast
+
+# function to count mismtaches
+def mismatchn (s1, s2):
+	return sum(c1!=c2 for c1,c2 in zip(s1,s2))
+
 reference = "/Library/WebServer/Documents/blast/db/nucleotide/161010_Chinese_Spring_v1.0_pseudomolecules.fasta"
 if blast and len(primer_for_blast) < 100:
 	cmd2 = 'blastn -task blastn -db ' + reference + ' -query for_blast.fa -outfmt "6 std qseq sseq qlen slen" -num_threads 3 -word_size 7 -out blast_out.txt'
@@ -715,7 +721,8 @@ if blast and len(primer_for_blast) < 100:
 		qstart, qstop, sstart, sstop = [int(x) for x in fields[6:10]]
 		qseq, sseq = fields[12:14]
 		qlen = int(fields[14])
-		if qstop == qlen and qseq[-5:] == sseq[-5:]: # if the alignment from the 3' 1st position and at leat the first 5 matches exactly
+		n1 = qlen - qstop
+		if n1 < 2 and mismatchn(qseq[(n1 - 4):], sseq[(n1 - 4):]) + n1 < 2: # if less than 2 mismtaches in the first 4 bases from the 3' end of the primer
 			blast_hit[query] = blast_hit.setdefault(query, "") + ";" + subject + ":" + str(sstart)
 
 ## write output
