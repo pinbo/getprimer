@@ -100,6 +100,7 @@ getprimer.py
 	--minsize <primer min size, default 18>
 	--maxsize <primer max size, default 25>
 	--maxtmdiff <max Tm difference between left and right primers>
+	--maxhairpin <maximum hairpin score of each primer>
 """
 
 
@@ -113,11 +114,12 @@ primer_pair_compl_any_threshold = 10.0 # web_v4 default 45
 primer_pair_compl_end_threshold = 10.0 # web_v4 default 35
 product_min = 100
 product_max = 1000
-minTm = 57
+minTm = 58
 maxTm = 62
-maxTmdiff = 5
+maxTmdiff = 2
 minSize = 18
-maxSize = 25
+maxSize = 23
+maxhairpin = 24 # web_v4 default is 24. primer3 default is 47
 blast = 0 # whether blast to check the primer specificity
 
 getprimer_path = os.path.dirname(os.path.realpath(__file__))
@@ -130,7 +132,7 @@ filter_flag = 0 # whether to filter the primers to remove primers in the same po
 print "Parsing command line options"
 
 try:
-	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:a:e:c:b:h", ["help", "mintm=", "maxtm=", "minsize=", "maxsize=", "maxtmdiff="])
+	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:a:e:c:b:h", ["help", "mintm=", "maxtm=", "minsize=", "maxsize=", "maxtmdiff=", "maxhairpin="])
 except getopt.GetoptError as err:
 	# print help information and exit:
 	print str(err)  # will print something like "option -a not recognized"
@@ -184,6 +186,8 @@ for o, a in opts:
 		maxSize = int(a)
 	elif o in ("--maxtmdiff"):
 		maxTmdiff = int(a)
+	elif o in ("--maxhairpin"):
+		maxhairpin = int(a)
 	else:
 		assert False, "unhandled option"
 print "OPtions done"
@@ -338,9 +342,10 @@ line8 = "PRIMER_MAX_SIZE=" + str(maxSize)
 line9 = "PRIMER_MIN_TM=" + str(minTm)
 line10 = "PRIMER_MAX_TM=" + str(maxTm)
 line11 = "PRIMER_PAIR_MAX_DIFF_TM=" + str(maxTmdiff)
-line12 = "="
+line12 = "PRIMER_MAX_HAIRPIN_TH=" + str(maxhairpin)
+line13 = "="
 
-p3input.write("\n".join([line0, line1, line2, line4, line5, line6, line7, line8, line9, line10, line11, line12]) + "\n")
+p3input.write("\n".join([line0, line1, line2, line4, line5, line6, line7, line8, line9, line10, line11, line12, line13]) + "\n")
 
 p3input.close()
 
