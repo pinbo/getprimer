@@ -461,7 +461,7 @@ print "Length of RIGHT primers:", len(rightprimers)
 # STEP 5: filter primers with variations
 
 # selected left primers
-newleftprimers = [] # left primers that are different between target group and the others
+newleftprimers = [] # left primers that are different between target group and the others but cannot differ all.
 alldifferenceleft = [] # primers that already can differentiate all other sequences
 nodiffleft = [] # primers that have no differences among all the seq, will be used to pair with primers that can already differ all other sequences.
 
@@ -491,7 +491,7 @@ for pp in leftprimers:
 			if var == (pp.end-1,):
 				pp.difthree = "YES"
 		if pp.nvar > 0: # if there is difference
-			newleftprimers.append(pp)
+			#newleftprimers.append(pp)
 			pp.difnum = sum(i > 0 for i in pp.difsite) # count how many sequences can be differentiated within the rangelimit
 			if min(pp.difsite) > 0:
 				#alldifferenceleft.append(pp)
@@ -501,6 +501,8 @@ for pp in leftprimers:
 			alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
 			if min(alldifsite) > 0:
 				alldifferenceleft.append(pp)
+			else:
+				newleftprimers.append(pp)
 		else:
 			nodiffleft.append(pp)
 
@@ -540,7 +542,7 @@ for pp in rightprimers:
 			if var == (pp.start-1,): # see whether the variation site is the 3' first site
 				pp.difthree = "YES"
 		if pp.nvar > 0:
-			newrightprimers.append(pp)
+			#newrightprimers.append(pp)
 			pp.difnum = sum(i > 0 for i in pp.difsite)
 			if min(pp.difsite) > 0:
 				#alldifferenceright.append(pp)
@@ -550,6 +552,8 @@ for pp in rightprimers:
 			alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
 			if min(alldifsite) > 0:
 				alldifferenceright.append(pp)
+			else:
+				newrightprimers.append(pp)
 		else:
 			nodiffright.append(pp)
 
@@ -586,6 +590,8 @@ def merge_dict(dx, dy):
 def testpair(leftlist, rightlist):
 	global product_max, product_min, primernumber, primerpairs, p3temp, maxTmdiff
 	for pl in leftlist:
+		if len(primerpairs) > 5000: # in case too many pairs of primers need to check.
+			break
 		for pr in rightlist:
 			alldifsite15 = [int(max(x) > 3) for x in zip(pl.difsite, pr.difsite)] # at least 4 differences
 			alldifsite4 = [int(max(x) > 0) for x in zip(pl.difsite4, pr.difsite4)] # at least 1 differences
@@ -621,17 +627,23 @@ def testpair(leftlist, rightlist):
 						line8 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + getprimer_path + "/bin/primer3_config/"
 						line9 = "="
 						p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8, line9]) + "\n")
+	print "primernumber is ", primernumber
+	print "Candidate primer pairs: ", len(primerpairs)
 
 testpair(alldifferenceleft, alldifferenceright)
-if len(primerpairs) < 100:
-	testpair(newleftprimers, newrightprimers)
+if len(primerpairs) < 1000:
+	testpair(alldifferenceleft, newrightprimers)
+if len(primerpairs) < 1000:
+	testpair(newleftprimers, alldifferenceright)
 if len(primerpairs) < 1000:
 	testpair(alldifferenceleft, nodiffright)
+if len(primerpairs) < 1000:
 	testpair(nodiffleft, alldifferenceright)
+
 p3temp.close()
 
 # check to see whether no good primer pairs found
-print "Candidate primer pairs: ", len(primerpairs)
+#print "Candidate primer pairs: ", len(primerpairs)
 if not primerpairs:
 	print "\nNo GOOD primers found!"
 	sys.exit(1)
@@ -671,6 +683,8 @@ exist_right = []
 final_primers = [] # for final output
 primer_for_blast = {} # primer sequences for blast
 for pp in pp_vector:
+	if len(final_primers) > 50: # only get 51 primer pairs maximum. Otherwise too many.
+		break
 	if pp.compl_any != "NA" and float(pp.compl_any) <= primer_pair_compl_any_threshold and float(pp.compl_end) <= primer_pair_compl_end_threshold:
 		pl = pp.left
 		pr = pp.right
@@ -707,7 +721,7 @@ def mismatchn (s1, s2):
 	return sum(c1!=c2 for c1,c2 in zip(s1,s2))
 
 reference = "/Library/WebServer/Documents/blast/db/nucleotide/161010_Chinese_Spring_v1.0_pseudomolecules.fasta"
-if blast and len(primer_for_blast) < 100:
+if blast:
 	cmd2 = 'blastn -task blastn -db ' + reference + ' -query for_blast.fa -outfmt "6 std qseq sseq qlen slen" -num_threads 3 -word_size 7 -out blast_out.txt'
 	print "Step 2: Blast command:\n", cmd2
 	call(cmd2, shell=True)
