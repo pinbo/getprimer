@@ -286,6 +286,7 @@ print "Alignment length: ", alignlen
 # get the target ID template base coordinate in the alignment
 t2a = {}
 ngap = 0 # gaps
+mainID = targets[0]
 for i in range(alignlen):
 	if fasta[mainID][i] == "-":
 		ngap += 1
@@ -299,11 +300,19 @@ def getvar(pp): # pp is a Primer object
 	ngap = 0 # gaps
 	mainID = targets[0] # the one whose primer3 output will be used
 	exclude = 0 # a tag to see whether the primer has difference within target group
-	align_left = t2a[pp.start] - 1 # pp.start and end is 1-based
-	align_right = t2a[pp.end]
+	align_left = t2a[pp.start - 1] # pp.start and end is 1-based
+	align_right = t2a[pp.end - 1]
 	# check whether the primer is in all the targets
+	#print "targets ", targets
+	#print "pp.seq ", pp.seq
+	#print "pp.start ", pp.start
+	#print "pp.end ", pp.end
+	#print "align_left is ", align_left
+	#print "align_right ", align_right
 	for j in targets:#check difference within targets
-		if fasta[j][align_left:align_right] != pp.seq:
+		targetseq = fasta[j][align_left:(align_right + 1)].replace("-","")
+		#print "targetseq ", targetseq
+		if targetseq != pp.seq:
 			exclude = 1
 			break
 	if exclude == 1:
@@ -333,19 +342,22 @@ def getvar(pp): # pp is a Primer object
 		diffarray.append(da)		
 	# get differsite4 and differsite15
 	pp.nvar =  sum([max(x) for x in zip(*diffarray)])
-	diffnum = [sum(x) for x in zip(*diffarray)] # diff number in each base
+	diffnum = [sum(x) for x in diffarray] # diff number in each base
+	#print "diffnum is ", diffnum
+	#print "pp.length is ", pp.length
 	if pp.direction == "LEFT_PRIMER":
-		pp.difsite = [sum(x) for x in diffarray[(pp.length - 15):pp.length]]
-		pp.difsite4 = [sum(x) for x in diffarray[(pp.length - 4):pp.length]]
-		pp.score = sum([float(diffnum[i]) / len(ids) * 100 / i for i in range(pp.length)[::-1]])
+		pp.difsite = [sum(x) for x in zip(*diffarray[(pp.length - 15):pp.length])]
+		pp.difsite4 = [sum(x) for x in zip(*diffarray[(pp.length - 4):pp.length])]
+		pp.score = sum([float(diffnum[i]) / len(ids) * 100 / (i + 1) for i in range(pp.length)[::-1]])
 		if sum(diffarray[-1]) > 0:
 			pp.difthree = "YES"
 	else:
-		pp.difsite = [sum(x) for x in diffarray[0:15]]
-		pp.difsite4 = [sum(x) for x in diffarray[0:4]]
-		pp.score = sum([float(diffnum[i]) / len(ids) * 100 / i for i in range(pp.length)])
+		pp.difsite = [sum(x) for x in zip(*diffarray[0:15])]
+		pp.difsite4 = [sum(x) for x in zip(*diffarray[0:4])]
+		pp.score = sum([float(diffnum[i]) / len(ids) * 100 / (i + 1) for i in range(pp.length)])
 		if sum(diffarray[0]) > 0:
 			pp.difthree = "YES"
+	#print "pp.difsite is ", pp.difsite
 	return pp
 
 
@@ -526,11 +538,11 @@ for pp in rightprimers:
 			alldifsite4 = [int(x > 0) for x in pp.difsite4] # at least 1 differences
 			alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
 			if min(alldifsite) > 0:
-				alldifferenceleft.append(pp)
+				alldifferenceright.append(pp)
 			else:
-				newleftprimers.append(pp)
+				newrightprimers.append(pp)
 		else:
-			nodiffleft.append(pp)
+			nodiffright.append(pp)
 
 print "number of right primers that can diff all:",
 print len(alldifferenceright)
