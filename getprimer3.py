@@ -293,31 +293,36 @@ for i in range(alignlen):
 		continue
 	t2a[i - ngap] = i
 
+# simple Tm calculator
+def CalcTm(seq):
+    t=0
+    for a in seq:
+        if a=='A' or a=='T':
+            t=t+2
+        if a=='C' or a=='G':
+            t=t+4
+    return t
+
 # function to get primer variations
 def getvar(pp): # pp is a Primer object
 	global fasta, t2a, targets, ids
+	pp.difsite = [0] * len(ids) # initialize the number of differnt bases from other sequences
+	pp.difsite4 = [0] * len(ids) # initialize the number of differnt bases from other sequences
 	diffarray = [] # to record difference with each other seq in each site, for primer pair selection later
-	ngap = 0 # gaps
+	ngap = 0 # gap number
 	mainID = targets[0] # the one whose primer3 output will be used
 	exclude = 0 # a tag to see whether the primer has difference within target group
 	align_left = t2a[pp.start - 1] # pp.start and end is 1-based
 	align_right = t2a[pp.end - 1]
-	# check whether the primer is in all the targets
-	#print "targets ", targets
-	#print "pp.seq ", pp.seq
-	#print "pp.start ", pp.start
-	#print "pp.end ", pp.end
-	#print "align_left is ", align_left
-	#print "align_right ", align_right
 	for j in targets:#check difference within targets
 		targetseq = fasta[j][align_left:(align_right + 1)].replace("-","")
-		#print "targetseq ", targetseq
 		if targetseq != pp.seq:
 			exclude = 1
 			break
 	if exclude == 1:
 		return 0
 	# if it is good for all targets
+	print "pp.seq ", pp.seq
 	for i in range(align_left, align_right + 1):
 		if fasta[mainID][i] == "-":
 			ngap += 1
@@ -330,7 +335,7 @@ def getvar(pp): # pp is a Primer object
 			# below nl1 to nr2 is for handling gaps
 			nl2 = len(fasta[k][:i]) - len(fasta[k][:i].rstrip("-")) # number of gaps on the left of current site for the homeolog
 			nr2 = len(fasta[k][(i+1):]) - len(fasta[k][(i+1):].lstrip("-")) + 1 # number of gaps on the right of current site for the homeolog
-			if i - ngap > pp.length / 2.0: # determine whether to shift left or right
+			if i - align_left - ngap + 1 > pp.length / 2.0: # determine whether to shift left or right
 				b1 = fasta[mainID][i:].replace("-","")[nl1] # target non-gap base
 				b2 = fasta[k][i:].replace("-","")[nl2] # homeolog non-gap bas
 			else:
@@ -339,22 +344,38 @@ def getvar(pp): # pp is a Primer object
 			if b1 != b2:
 				da[m] = 1 # m sequence has variation from target
 			m += 1
-		diffarray.append(da)		
+		diffarray.append(da)
+		if min(da) > 0: # if there is variation between targets and other sequences
+			if pp.direction == "LEFT_PRIMER":
+				difpos = pp.length - (i - align_left - ngap)
+				pp.difsitedict[difpos] = da
+			else:
+				difpos = (i - align_left - ngap) + 1
+				pp.difsitedict[difpos] = da
+			pp.nvar += 1
+			difnum = sum(i > 0 for i in da)
+			pp.difsite = [sum(x) for x in zip(pp.difsite, da)]
+			difnum_new = sum(i > 0 for i in pp.difsite)
+			dif_add = difnum_new - difnum # whether it can increase the overal variation
+			pp.score += (float(difnum) / len(ids) * 100 + float(dif_add) / len(ids) * 50) / difpos
 	# get differsite4 and differsite15
 	pp.nvar =  sum([max(x) for x in zip(*diffarray)])
-	diffnum = [sum(x) for x in diffarray] # diff number in each base
+	#diffnum = [sum(x) for x in diffarray] # diff number in each base
+	pp.difnum = sum(i > 0 for i in pp.difsite)
+	if min(pp.difsite) > 0:
+		pp.difall = "YES"
 	#print "diffnum is ", diffnum
 	#print "pp.length is ", pp.length
 	if pp.direction == "LEFT_PRIMER":
 		pp.difsite = [sum(x) for x in zip(*diffarray[(pp.length - 15):pp.length])]
 		pp.difsite4 = [sum(x) for x in zip(*diffarray[(pp.length - 4):pp.length])]
-		pp.score = sum([float(diffnum[i]) / len(ids) * 100 / (i + 1) for i in range(pp.length)[::-1]])
+		#pp.score = sum([float(diffnum[i]) / len(ids) * 100 / (i + 1) for i in range(pp.length)[::-1]])
 		if sum(diffarray[-1]) > 0:
 			pp.difthree = "YES"
 	else:
 		pp.difsite = [sum(x) for x in zip(*diffarray[0:15])]
 		pp.difsite4 = [sum(x) for x in zip(*diffarray[0:4])]
-		pp.score = sum([float(diffnum[i]) / len(ids) * 100 / (i + 1) for i in range(pp.length)])
+		#pp.score = sum([float(diffnum[i]) / len(ids) * 100 / (i + 1) for i in range(pp.length)])
 		if sum(diffarray[0]) > 0:
 			pp.difthree = "YES"
 	#print "pp.difsite is ", pp.difsite
@@ -682,8 +703,10 @@ for pp in pp_vector:
 				final_primers.append(pp)
 				#outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
 				#outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
-				exist_left += range(pl.end - 5, pl.end + 6)
-				exist_right += range(pr.start -5, pr.start + 6)
+				#exist_left += range(pl.end - 5, pl.end + 6)
+				#exist_right += range(pr.start -5, pr.start + 6)
+				exist_left += range(pl.end - 2, pl.end + 4) # only filter out closest 3 bases
+				exist_right += range(pr.start - 3, pr.start + 3)
 		else:
 			#forblast.write(">" + pl.name + "\n" + pl.seq + "\n>" + pr.name + "\n" + pr.seq + "\n")
 			primer_for_blast[pl.name] = pl.seq

@@ -696,8 +696,10 @@ for pp in pp_vector:
 				final_primers.append(pp)
 				#outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
 				#outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
-				exist_left += range(pl.end - 5, pl.end + 6)
-				exist_right += range(pr.start -5, pr.start + 6)
+				#exist_left += range(pl.end - 5, pl.end + 6)
+				#exist_right += range(pr.start -5, pr.start + 6)
+				exist_left += range(pl.end - 2, pl.end + 4) # only filter out closest 3 bases
+				exist_right += range(pr.start - 3, pr.start + 3)
 		else:
 			#forblast.write(">" + pl.name + "\n" + pl.seq + "\n>" + pr.name + "\n" + pr.seq + "\n")
 			primer_for_blast[pl.name] = pl.seq
