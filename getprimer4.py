@@ -372,8 +372,123 @@ def getvar(pp, fasta, t2a, targets, ids): # pp is a Primer object
 			pp.difthree = "YES"
 	return pp
 
+## define function to merge two dictionaries of difsite
+def merge_dict(dx, dy):
+	newdict = {}
+	for key in dx.keys() + dy.keys():
+		if key in dx:
+			if key in dy:
+				newdict[key] = [sum(x) for x in zip(dx[key], dy[key])]
+			else:
+				newdict[key] = dx[key]
+		else:
+			newdict[key] = dy[key]
+	return(newdict)
 
+# test primer pairs
+def testpair(leftlist, rightlist):
+	global product_max, product_min, primernumber, primerpairs, p3temp, maxTmdiff
+	for pl in leftlist:
+		if len(primerpairs) > 1000: # in case too many pairs of primers need to check.
+			break
+		for pr in rightlist:
+			alldifsite15 = [int(max(x) > 3) for x in zip(pl.difsite, pr.difsite)] # at least 4 differences
+			alldifsite4 = [int(max(x) > 0) for x in zip(pl.difsite4, pr.difsite4)] # at least 1 differences
+			alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
+			if min(alldifsite) > 0 and pl.end < pr.start and abs(pl.tm - pr.tm) <= maxTmdiff:
+				productsize = pr.end - pl.start + 1
+				if productsize >= product_min and productsize <= product_max:
+					primernumber += 1
+					ppname = str(primernumber)
+					pp = PrimerPair()
+					pp.name = ppname
+					pp.left = pl
+					pp.right = pr
+					pp.product_size = productsize
+					pp.difsite = alldifsite15
+					pp.difsite4 = alldifsite4
+					# get score below
+					diffmerge = merge_dict(pl.difsitedict, pr.difsitedict)
+					for k, v in diffmerge.items():
+						difnum = sum(i > 0 for i in v) # how many sequences this difpos can differ
+						tt = sum(i > 1 for i in v) # to account for the same variations between left and right primers
+						pp.score += (float(difnum) / len(ids) * 100 + float(tt) / len(ids) * 50)/ k
+					if pp.score >= primer_pair_score_threshold:
+						primerpairs[ppname] = pp
+						line1 = "SEQUENCE_ID=" + ppname
+						line2 = "PRIMER_TASK=check_primers"
+						line3 = "PRIMER_EXPLAIN_FLAG=1"
+						line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
+						line5 = "SEQUENCE_TEMPLATE=" + seqtemplate
+						line6 =  "SEQUENCE_PRIMER=" + pl.seq
+						line7 = "SEQUENCE_PRIMER_REVCOMP=" + ReverseComplement(pr.seq)
+						line8 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + getprimer_path + "/bin/primer3_config/"
+						line9 = "="
+						p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8, line9]) + "\n")
+	print "primernumber is ", primernumber
+	print "Candidate primer pairs: ", len(primerpairs)
 
+def filter_primerpairs_for_blast(primerpairs, primer_pair_compl_any_threshold, primer_pair_compl_end_threshold, filter_flag):
+	pp_vector = primerpairs.values()
+	pp_vector.sort(key=lambda x: x.score, reverse=True)
+	exist_left = []
+	exist_right = []
+	final_primers = [] # for final output
+	primer_for_blast = {} # primer sequences for blast
+	for pp in pp_vector:
+		if len(final_primers) > 50: # only get 51 primer pairs maximum. Otherwise too many.
+			break
+		if pp.compl_any != "NA" and float(pp.compl_any) <= primer_pair_compl_any_threshold and float(pp.compl_end) <= primer_pair_compl_end_threshold:
+			pl = pp.left
+			pr = pp.right
+			if filter_flag:
+				if pl.end not in exist_left or pr.start not in exist_right:
+					primer_for_blast[pl.name] = pl.seq
+					primer_for_blast[pr.name] = ReverseComplement(pr.seq) # right prmer sequences is actually its RC
+					final_primers.append(pp)
+					exist_left += range(pl.end - 2, pl.end + 4) # only filter out closest 3 bases
+					exist_right += range(pr.start - 3, pr.start + 3)
+			else:
+				primer_for_blast[pl.name] = pl.seq
+				primer_for_blast[pr.name] = pr.seq
+				final_primers.append(pp)
+	return final_primers, primer_for_blast
+
+# function to count mismtaches
+def mismatchn (s1, s2):
+	return sum(c1!=c2 for c1,c2 in zip(s1,s2))
+
+# function to blast and parse the output of each primer in the wheat genome
+def primer_blast(primer_for_blast):
+	forblast = open("for_blast.fa", 'w') # for blast against the gnome
+	for k, v in primer_for_blast.items():
+		forblast.write(">" + k + "\n" + v + "\n")
+	forblast.close()
+	blast_hit = {} # matched chromosomes for primers: less than 2 mismatches in the first 4 bps from 3'
+	### for blast
+	reference = "/Library/WebServer/Documents/blast/db/nucleotide/161010_Chinese_Spring_v1.0_pseudomolecules.fasta"
+	cmd2 = 'blastn -task blastn -db ' + reference + ' -query for_blast.fa -outfmt "6 std qseq sseq qlen slen" -num_threads 3 -word_size 7 -out blast_out.txt'
+	print "Step 2: Blast command:\n", cmd2
+	call(cmd2, shell=True)
+	# process blast file
+	# blast fields
+	# IWB50236_7A_R	IWGSC_CSS_7DS_scaff_3919748	98.718	78	1	0	24	101	4891	4968	1.55e-30	138	CTCATCAAATGATTCAAAAATATCGATRCTTGGCTGGTGTATCGTGCAGACGACAGTTCGTCCGGTATCAACAGCATT	CTCATCAAATGATTCAAAAATATCGATGCTTGGCTGGTGTATCGTGCAGACGACAGTTCGTCCGGTATCAACAGCATT	101 5924
+	# Fields: 
+	# 1: query id, subject id, % identity, alignment length, mismatches, gap opens, 
+	# 7: q. start, q. end, s. start, s. end, evalue, bit score
+	# 13: q. sequence, s. sequence, q. length s. length
+	for line in open("blast_out.txt"):
+		if line.startswith('#'):
+			continue
+		fields = line.split("\t")
+		query, subject, pct_identity, align_length= fields[:4]
+		qstart, qstop, sstart, sstop = [int(x) for x in fields[6:10]]
+		qseq, sseq = fields[12:14]
+		qlen = int(fields[14])
+		n1 = qlen - qstop
+		if n1 < 2 and mismatchn(qseq[(n1 - 4):], sseq[(n1 - 4):]) + n1 < 2: # if less than 2 mismtaches in the first 4 bases from the 3' end of the primer
+			blast_hit[query] = blast_hit.setdefault(query, "") + ";" + subject + ":" + str(sstart)
+	return blast_hit
 
 ##############################
 # Primer class
@@ -525,6 +640,7 @@ primer3_path, muscle_path = get_software_path(getprimer_path)
 RawAlignFile = "alignment_raw.fa"
 if msa:
 	get_alignment(muscle_path, seqfile, RawAlignFile)
+
 ###################
 # STEP 1: read alignment fasta file into a dictionary AND format it by removing leading and ending "-"
 fasta = get_fasta(RawAlignFile) # read alignment file
@@ -548,6 +664,7 @@ primer3_param = {
 # Creat primer3 input and run primer3 to create primer lists
 primer3output = "primer3.output"
 get_primers(primer3_param, primer3_path, primer3output)
+
 #####################################
 # STEP 3: parse primer3 output
 leftprimers = parse_primer3_output(primer3output, "LEFT_PRIMER")
@@ -555,6 +672,7 @@ rightprimers = parse_primer3_output(primer3output, "RIGHT_PRIMER")
 
 print "Length of LEFT primers:", len(leftprimers)
 print "Length of RIGHT primers:", len(rightprimers)
+
 ###########################
 # STEP 4: get the primer start and end positions on the alignment
 ids = [] # all other sequence names
@@ -577,6 +695,7 @@ for i in range(alignlen):
 	t2a[i - ngap] = i
 
 print "last key of t2a", i - ngap
+
 ###################################
 # STEP 5: filter primers with variations
 
@@ -587,13 +706,12 @@ print len(alldifferenceleft)
 print "Number of selected LEFT primers", len(newleftprimers)
 # selected right primers
 newrightprimers, alldifferenceright, nodiffright = group_primers(rightprimers, fasta, t2a, targets, ids)
-
 print "number of right primers that can diff all:",
 print len(alldifferenceright)
 print "Number of selected RIGHT primers", len(newrightprimers)
 
 #############################
-# STEP 6: Select and Test Primer Pairs
+# STEP 6: Select Primer Pairs
 
 # selected primers pairs
 tempin = 'temp_primer_pair_check_input_' + groupname + ".txt"
@@ -602,62 +720,7 @@ seqtemplate = fasta[mainID].replace("-","") # remove "-" in the alignment seq
 primernumber = 0
 primerpairs = {} # all the pairs with the right size and Tm differences
 
-## define function to merge two dictionaries of difsite
-def merge_dict(dx, dy):
-	newdict = {}
-	for key in dx.keys() + dy.keys():
-		if key in dx:
-			if key in dy:
-				newdict[key] = [sum(x) for x in zip(dx[key], dy[key])]
-			else:
-				newdict[key] = dx[key]
-		else:
-			newdict[key] = dy[key]
-	return(newdict)
-
-
-def testpair(leftlist, rightlist):
-	global product_max, product_min, primernumber, primerpairs, p3temp, maxTmdiff
-	for pl in leftlist:
-		if len(primerpairs) > 1000: # in case too many pairs of primers need to check.
-			break
-		for pr in rightlist:
-			alldifsite15 = [int(max(x) > 3) for x in zip(pl.difsite, pr.difsite)] # at least 4 differences
-			alldifsite4 = [int(max(x) > 0) for x in zip(pl.difsite4, pr.difsite4)] # at least 1 differences
-			alldifsite = [sum(x) for x in zip(alldifsite15, alldifsite4)]
-			if min(alldifsite) > 0 and pl.end < pr.start and abs(pl.tm - pr.tm) <= maxTmdiff:
-				productsize = pr.end - pl.start + 1
-				if productsize >= product_min and productsize <= product_max:
-					primernumber += 1
-					ppname = str(primernumber)
-					pp = PrimerPair()
-					pp.name = ppname
-					pp.left = pl
-					pp.right = pr
-					pp.product_size = productsize
-					pp.difsite = alldifsite15
-					pp.difsite4 = alldifsite4
-					# get score below
-					diffmerge = merge_dict(pl.difsitedict, pr.difsitedict)
-					for k, v in diffmerge.items():
-						difnum = sum(i > 0 for i in v) # how many sequences this difpos can differ
-						tt = sum(i > 1 for i in v) # to account for the same variations between left and right primers
-						pp.score += (float(difnum) / len(ids) * 100 + float(tt) / len(ids) * 50)/ k
-					if pp.score >= primer_pair_score_threshold:
-						primerpairs[ppname] = pp
-						line1 = "SEQUENCE_ID=" + ppname
-						line2 = "PRIMER_TASK=check_primers"
-						line3 = "PRIMER_EXPLAIN_FLAG=1"
-						line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
-						line5 = "SEQUENCE_TEMPLATE=" + seqtemplate
-						line6 =  "SEQUENCE_PRIMER=" + pl.seq
-						line7 = "SEQUENCE_PRIMER_REVCOMP=" + ReverseComplement(pr.seq)
-						line8 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + getprimer_path + "/bin/primer3_config/"
-						line9 = "="
-						p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8, line9]) + "\n")
-	print "primernumber is ", primernumber
-	print "Candidate primer pairs: ", len(primerpairs)
-
+# test primer pairs and write primer3 input for other parameter checks
 testpair(alldifferenceleft, alldifferenceright)
 if len(primerpairs) < 1000:
 	testpair(alldifferenceleft, newrightprimers)
@@ -671,20 +734,19 @@ if len(primerpairs) < 1000:
 p3temp.close()
 
 # check to see whether no good primer pairs found
-#print "Candidate primer pairs: ", len(primerpairs)
 if not primerpairs:
 	print "\nNo GOOD primers found!"
 	sys.exit(1)
 
-## use primer3 to check the primer pair quality
+#############################
+# STEP 7: Check Primer Pairs quality
 tempout = "temp_primer_pair_test_out_" + groupname + ".txt"
 #p3cmd = primer3_path + " -default_version=2 -p3_settings_file=" + primer3_parameter_path + " -output=" + " ".join([tempout, tempin])
 p3cmd = primer3_path + " -default_version=2 -output=" + " ".join([tempout, tempin])
 print "Primer3 command 2nd time: ", p3cmd
 call(p3cmd, shell=True)
 
-### parse primer 3 primer check output
-
+# parse primer 3 primer check output
 with open(tempout) as infile:
 	for line in infile:
 		line = line.strip()
@@ -697,78 +759,23 @@ with open(tempout) as infile:
 		if "PRIMER_PAIR_0_COMPL_END" in line:
 			primerpairs[seqid].compl_end = line.split("=")[1]
 
+#############################
+# STEP 8: filter and write output
+
+# filter primer pairs if filter_flag == 1 and get the final list of primers
+final_primers, primer_for_blast = filter_primerpairs_for_blast(primerpairs, primer_pair_compl_any_threshold, primer_pair_compl_end_threshold, filter_flag)
+
+#############################
+# STEP 9: blast the primers in the wheat genome if blast parameter
+blast_hit = {}
+if blast:
+	blast_hit = primer_blast(primer_for_blast) # chromosome hit for each primer
+
+#############################
+# STEP 10: write output
 outfile = open(out, 'w') # output file
 outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\tprimerpair_score\tprimer_diff15\tprimer_diff4\tacross_overlap\tmatched_chromosomes\n")
 
-print "primer_pair_compl_any_threshold ", primer_pair_compl_any_threshold
-print "primer_pair_compl_end_threshold ", primer_pair_compl_end_threshold
-
-#for pp in primerpairs:
-pp_vector = primerpairs.values()
-pp_vector.sort(key=lambda x: x.score, reverse=True)
-exist_left = []
-exist_right = []
-final_primers = [] # for final output
-primer_for_blast = {} # primer sequences for blast
-for pp in pp_vector:
-	if len(final_primers) > 50: # only get 51 primer pairs maximum. Otherwise too many.
-		break
-	if pp.compl_any != "NA" and float(pp.compl_any) <= primer_pair_compl_any_threshold and float(pp.compl_end) <= primer_pair_compl_end_threshold:
-		pl = pp.left
-		pr = pp.right
-		if filter_flag:
-			if pl.end not in exist_left or pr.start not in exist_right:
-				#forblast.write(">" + pl.name + "\n" + pl.seq + "\n>" + pr.name + "\n" + pr.seq + "\n")
-				primer_for_blast[pl.name] = pl.seq
-				primer_for_blast[pr.name] = ReverseComplement(pr.seq) # right prmer sequences is actually its RC
-				final_primers.append(pp)
-				exist_left += range(pl.end - 2, pl.end + 4) # only filter out closest 3 bases
-				exist_right += range(pr.start - 3, pr.start + 3)
-		else:
-			#forblast.write(">" + pl.name + "\n" + pl.seq + "\n>" + pr.name + "\n" + pr.seq + "\n")
-			primer_for_blast[pl.name] = pl.seq
-			primer_for_blast[pr.name] = pr.seq
-			final_primers.append(pp)
-
-#########
-#outfile.close()
-forblast = open("for_blast.fa", 'w') # for blast against the gnome
-for k, v in primer_for_blast.items():
-	forblast.write(">" + k + "\n" + v + "\n")
-forblast.close()
-
-blast_hit = {} # matched chromosomes for primers: at least perfect match for the first 5 bp from 3'
-### for blast
-
-# function to count mismtaches
-def mismatchn (s1, s2):
-	return sum(c1!=c2 for c1,c2 in zip(s1,s2))
-
-reference = "/Library/WebServer/Documents/blast/db/nucleotide/161010_Chinese_Spring_v1.0_pseudomolecules.fasta"
-if blast:
-	cmd2 = 'blastn -task blastn -db ' + reference + ' -query for_blast.fa -outfmt "6 std qseq sseq qlen slen" -num_threads 3 -word_size 7 -out blast_out.txt'
-	print "Step 2: Blast command:\n", cmd2
-	call(cmd2, shell=True)
-	# process blast file
-	# blast fields
-	# IWB50236_7A_R	IWGSC_CSS_7DS_scaff_3919748	98.718	78	1	0	24	101	4891	4968	1.55e-30	138	CTCATCAAATGATTCAAAAATATCGATRCTTGGCTGGTGTATCGTGCAGACGACAGTTCGTCCGGTATCAACAGCATT	CTCATCAAATGATTCAAAAATATCGATGCTTGGCTGGTGTATCGTGCAGACGACAGTTCGTCCGGTATCAACAGCATT	101 5924
-	# Fields: 
-	# 1: query id, subject id, % identity, alignment length, mismatches, gap opens, 
-	# 7: q. start, q. end, s. start, s. end, evalue, bit score
-	# 13: q. sequence, s. sequence, q. length s. length
-	for line in open("blast_out.txt"):
-		if line.startswith('#'):
-			continue
-		fields = line.split("\t")
-		query, subject, pct_identity, align_length= fields[:4]
-		qstart, qstop, sstart, sstop = [int(x) for x in fields[6:10]]
-		qseq, sseq = fields[12:14]
-		qlen = int(fields[14])
-		n1 = qlen - qstop
-		if n1 < 2 and mismatchn(qseq[(n1 - 4):], sseq[(n1 - 4):]) + n1 < 2: # if less than 2 mismtaches in the first 4 bases from the 3' end of the primer
-			blast_hit[query] = blast_hit.setdefault(query, "") + ";" + subject + ":" + str(sstart)
-
-## write output
 for pp in final_primers:
 	pl = pp.left
 	pr = pp.right
@@ -777,6 +784,7 @@ for pp in final_primers:
 
 outfile.close()
 
+print "\n\nPrimer design is finished!\n\n"
 ## remove all tempotary files
 #call("rm temp_*", shell=True)
 
