@@ -77,6 +77,9 @@
 
 # 5/3/2017: 1. set word_size of blastn to 7; 2. set potential target of primers in the blast to: less than 2 mismatches in the first 4 3' bases.
 
+# 5/9/2017: change a lot of steps to functions and add main function
+
+
 ### Imported
 from subprocess import call
 import getopt, sys, os
@@ -537,254 +540,256 @@ class PrimerPair(object):
 		self.difsite = []
 		self.difsite4 = []
 
-
-
 #########################
-# parameter or file names that need to be changed
 
-seqfile = "sequence.fa"
-targets = []
-primer_pair_score_threshold = 50.0
-primer_pair_compl_any_threshold = 10.0 # web_v4 default 45
-primer_pair_compl_end_threshold = 10.0 # web_v4 default 35
-product_min = 100
-product_max = 1000
-minTm = 58
-maxTm = 62
-maxTmdiff = 2
-minSize = 18
-maxSize = 23
-maxhairpin = 35 # web_v4 default is 24. primer3 default is 47
-blast = 0 # whether blast to check the primer specificity
+def main():
+	# parameter or file names that need to be changed
+	seqfile = "sequence.fa"
+	targets = []
+	primer_pair_score_threshold = 50.0
+	primer_pair_compl_any_threshold = 10.0 # web_v4 default 45
+	primer_pair_compl_end_threshold = 10.0 # web_v4 default 35
+	product_min = 100
+	product_max = 1000
+	minTm = 58
+	maxTm = 62
+	maxTmdiff = 2
+	minSize = 18
+	maxSize = 23
+	maxhairpin = 35 # web_v4 default is 24. primer3 default is 47
+	blast = 0 # whether blast to check the primer specificity
 
-getprimer_path = os.path.dirname(os.path.realpath(__file__))
-rangelimit = 15 # only find difference in the first a few nt from 3' end of each primer
-out = "" # output file
-msa = 1 # whether need to do multiple sequence alignment
-overlap_region = [] # intron region
-filter_flag = 0 # whether to filter the primers to remove primers in the same positions
-# read command line options
-print "Parsing command line options"
+	getprimer_path = os.path.dirname(os.path.realpath(__file__))
+	rangelimit = 15 # only find difference in the first a few nt from 3' end of each primer
+	out = "" # output file
+	msa = 1 # whether need to do multiple sequence alignment
+	overlap_region = [] # intron region
+	filter_flag = 0 # whether to filter the primers to remove primers in the same positions
+	# read command line options
+	print "Parsing command line options"
 
-try:
-	opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:a:e:c:b:h", ["help", "mintm=", "maxtm=", "minsize=", "maxsize=", "maxtmdiff=", "maxhairpin="])
-except getopt.GetoptError as err:
-	# print help information and exit:
-	print str(err)  # will print something like "option -a not recognized"
-	print usage
-	sys.exit(2)
-for o, a in opts:
-	if o == "-i":
-		seqfile = a
-	elif o in ("-h", "--help"):
+	try:
+		opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:a:e:c:b:h", ["help", "mintm=", "maxtm=", "minsize=", "maxsize=", "maxtmdiff=", "maxhairpin="])
+	except getopt.GetoptError as err:
+		# print help information and exit:
+		print str(err)  # will print something like "option -a not recognized"
 		print usage
-		sys.exit()
-	elif o in ("-p"):
-		getprimer_path = a
-	elif o in ("-s"):
-		product_min = int(a)
-	elif o in ("-l"):
-		product_max = int(a)
-	elif o in ("-g"):
-		targets = a.split(",")
-		print targets
-	elif o in ("-o"):
-		out = a
-	elif o in ("-m"):
-		msa = int(a)
-	elif o in ("-r"):
-		rangelimit = int(a)
-	elif o in ("-f"):
-		filter_flag = int(a)
-	elif o in ("-a"):
-		primer_pair_compl_any_threshold = int(a)
-	elif o in ("-e"):
-		primer_pair_compl_end_threshold = int(a)
-	elif o in ("-c"):
-		primer_pair_score_threshold = int(a)
-	elif o in ("-b"):
-		blast = int(a)
-	elif o in ("-v"):
-		regions = a.split(",")
-		for rr in regions:
-			r1, r2 = rr.split("-")
-			overlap_region += range(int(r1), int(r2)+1)
-	elif o in ("--mintm"):
-		minTm = int(a)
-	elif o in ("--mintm"):
-		minTm = int(a)
-	elif o in ("--maxtm"):
-		maxTm = int(a)
-	elif o in ("--minsize"):
-		minSize = int(a)
-	elif o in ("--maxsize"):
-		maxSize = int(a)
-	elif o in ("--maxtmdiff"):
-		maxTmdiff = int(a)
-	elif o in ("--maxhairpin"):
-		maxhairpin = int(a)
-	else:
-		assert False, "unhandled option"
-print "Options done"
-if not targets:
-	print "Please give the sequence IDs for primer design!"
-	sys.exit(1)
+		sys.exit(2)
+	for o, a in opts:
+		if o == "-i":
+			seqfile = a
+		elif o in ("-h", "--help"):
+			print usage
+			sys.exit()
+		elif o in ("-p"):
+			getprimer_path = a
+		elif o in ("-s"):
+			product_min = int(a)
+		elif o in ("-l"):
+			product_max = int(a)
+		elif o in ("-g"):
+			targets = a.split(",")
+			print targets
+		elif o in ("-o"):
+			out = a
+		elif o in ("-m"):
+			msa = int(a)
+		elif o in ("-r"):
+			rangelimit = int(a)
+		elif o in ("-f"):
+			filter_flag = int(a)
+		elif o in ("-a"):
+			primer_pair_compl_any_threshold = int(a)
+		elif o in ("-e"):
+			primer_pair_compl_end_threshold = int(a)
+		elif o in ("-c"):
+			primer_pair_score_threshold = int(a)
+		elif o in ("-b"):
+			blast = int(a)
+		elif o in ("-v"):
+			regions = a.split(",")
+			for rr in regions:
+				r1, r2 = rr.split("-")
+				overlap_region += range(int(r1), int(r2)+1)
+		elif o in ("--mintm"):
+			minTm = int(a)
+		elif o in ("--mintm"):
+			minTm = int(a)
+		elif o in ("--maxtm"):
+			maxTm = int(a)
+		elif o in ("--minsize"):
+			minSize = int(a)
+		elif o in ("--maxsize"):
+			maxSize = int(a)
+		elif o in ("--maxtmdiff"):
+			maxTmdiff = int(a)
+		elif o in ("--maxhairpin"):
+			maxhairpin = int(a)
+		else:
+			assert False, "unhandled option"
+	print "Options done"
+	if not targets:
+		print "Please give the sequence IDs for primer design!"
+		sys.exit(1)
 
-groupname = "-".join(targets)
-if not out:
-	out = 'selected_primers_for_' + groupname + ".txt"
+	groupname = "-".join(targets)
+	if not out:
+		out = 'selected_primers_for_' + groupname + ".txt"
 
-primer3_path, muscle_path = get_software_path(getprimer_path)
-#########################
-# STEP 0: create alignment file and primer3output file
-RawAlignFile = "alignment_raw.fa"
-if msa:
-	get_alignment(muscle_path, seqfile, RawAlignFile)
+	primer3_path, muscle_path = get_software_path(getprimer_path)
+	#########################
+	# STEP 0: create alignment file and primer3output file
+	RawAlignFile = "alignment_raw.fa"
+	if msa:
+		get_alignment(muscle_path, seqfile, RawAlignFile)
 
-###################
-# STEP 1: read alignment fasta file into a dictionary AND format it by removing leading and ending "-"
-fasta = get_fasta(RawAlignFile) # read alignment file
-fasta = format_alignment(fasta) # remove leading and ending "-"
+	###################
+	# STEP 1: read alignment fasta file into a dictionary AND format it by removing leading and ending "-"
+	fasta = get_fasta(RawAlignFile) # read alignment file
+	fasta = format_alignment(fasta) # remove leading and ending "-"
 
-####################################
-# STEP 2: design primers
-mainID = targets[0]
-primer3_param = {
-	"seqID": mainID,
-	"seq": fasta[mainID].replace("-",""), # remove "-" in the alignment seq
-	"product_range": str(product_min) + "-" + str(product_max),
-	"TH_param_path": getprimer_path + "/bin/primer3_config/",
-	"primer_size_min": str(minSize),
-	"primer_size_max": str(maxSize),
-	"primer_tm_min":  str(minTm),
-	"primer_tm_max": str(maxTm),
-	"primer_tm_diff_max": str(maxTmdiff),
-	"primer_hairpin_max": str(maxhairpin)
-	}
-# Creat primer3 input and run primer3 to create primer lists
-primer3output = "primer3.output"
-get_primers(primer3_param, primer3_path, primer3output)
+	####################################
+	# STEP 2: design primers
+	mainID = targets[0]
+	primer3_param = {
+		"seqID": mainID,
+		"seq": fasta[mainID].replace("-",""), # remove "-" in the alignment seq
+		"product_range": str(product_min) + "-" + str(product_max),
+		"TH_param_path": getprimer_path + "/bin/primer3_config/",
+		"primer_size_min": str(minSize),
+		"primer_size_max": str(maxSize),
+		"primer_tm_min":  str(minTm),
+		"primer_tm_max": str(maxTm),
+		"primer_tm_diff_max": str(maxTmdiff),
+		"primer_hairpin_max": str(maxhairpin)
+		}
+	# Creat primer3 input and run primer3 to create primer lists
+	primer3output = "primer3.output"
+	get_primers(primer3_param, primer3_path, primer3output)
 
-#####################################
-# STEP 3: parse primer3 output
-leftprimers = parse_primer3_output(primer3output, "LEFT_PRIMER")
-rightprimers = parse_primer3_output(primer3output, "RIGHT_PRIMER")
+	#####################################
+	# STEP 3: parse primer3 output
+	leftprimers = parse_primer3_output(primer3output, "LEFT_PRIMER")
+	rightprimers = parse_primer3_output(primer3output, "RIGHT_PRIMER")
 
-print "Length of LEFT primers:", len(leftprimers)
-print "Length of RIGHT primers:", len(rightprimers)
+	print "Length of LEFT primers:", len(leftprimers)
+	print "Length of RIGHT primers:", len(rightprimers)
 
-###########################
-# STEP 4: get the primer start and end positions on the alignment
-ids = [] # all other sequence names
-for key in fasta:
-	if key not in targets:
-		ids.append(key)
+	###########################
+	# STEP 4: get the primer start and end positions on the alignment
+	ids = [] # all other sequence names
+	for key in fasta:
+		if key not in targets:
+			ids.append(key)
 
-print "The other groups: ", ids
+	print "The other groups: ", ids
 
-alignlen = len(fasta[targets[0]])
-print "Alignment length: ", alignlen
+	alignlen = len(fasta[targets[0]])
+	print "Alignment length: ", alignlen
 
-# get the target ID template base coordinate in the alignment
-t2a = {} # template to alignment
-ngap = 0 # gaps
-for i in range(alignlen):
-	if fasta[mainID][i] == "-":
-		ngap += 1
-		continue
-	t2a[i - ngap] = i
+	# get the target ID template base coordinate in the alignment
+	t2a = {} # template to alignment
+	ngap = 0 # gaps
+	for i in range(alignlen):
+		if fasta[mainID][i] == "-":
+			ngap += 1
+			continue
+		t2a[i - ngap] = i
 
-print "last key of t2a", i - ngap
+	print "last key of t2a", i - ngap
 
-###################################
-# STEP 5: filter primers with variations
+	###################################
+	# STEP 5: filter primers with variations
 
-# selected left primers
-newleftprimers, alldifferenceleft, nodiffleft = group_primers(leftprimers, fasta, t2a, targets, ids)
-print "number of left primers that can diff all:",
-print len(alldifferenceleft)
-print "Number of selected LEFT primers", len(newleftprimers)
-# selected right primers
-newrightprimers, alldifferenceright, nodiffright = group_primers(rightprimers, fasta, t2a, targets, ids)
-print "number of right primers that can diff all:",
-print len(alldifferenceright)
-print "Number of selected RIGHT primers", len(newrightprimers)
+	# selected left primers
+	newleftprimers, alldifferenceleft, nodiffleft = group_primers(leftprimers, fasta, t2a, targets, ids)
+	print "number of left primers that can diff all:",
+	print len(alldifferenceleft)
+	print "Number of selected LEFT primers", len(newleftprimers)
+	# selected right primers
+	newrightprimers, alldifferenceright, nodiffright = group_primers(rightprimers, fasta, t2a, targets, ids)
+	print "number of right primers that can diff all:",
+	print len(alldifferenceright)
+	print "Number of selected RIGHT primers", len(newrightprimers)
 
-#############################
-# STEP 6: Select Primer Pairs
+	#############################
+	# STEP 6: Select Primer Pairs
 
-# selected primers pairs
-tempin = 'temp_primer_pair_check_input_' + groupname + ".txt"
-p3temp = open(tempin, 'w') # output file
-seqtemplate = fasta[mainID].replace("-","") # remove "-" in the alignment seq
-primernumber = 0
-primerpairs = {} # all the pairs with the right size and Tm differences
+	# selected primers pairs
+	tempin = 'temp_primer_pair_check_input_' + groupname + ".txt"
+	p3temp = open(tempin, 'w') # output file
+	seqtemplate = fasta[mainID].replace("-","") # remove "-" in the alignment seq
+	primernumber = 0
+	primerpairs = {} # all the pairs with the right size and Tm differences
 
-# test primer pairs and write primer3 input for other parameter checks
-testpair(alldifferenceleft, alldifferenceright)
-if len(primerpairs) < 1000:
-	testpair(alldifferenceleft, newrightprimers)
-if len(primerpairs) < 1000:
-	testpair(newleftprimers, alldifferenceright)
-if len(primerpairs) < 1000:
-	testpair(alldifferenceleft, nodiffright)
-if len(primerpairs) < 1000:
-	testpair(nodiffleft, alldifferenceright)
+	# test primer pairs and write primer3 input for other parameter checks
+	testpair(alldifferenceleft, alldifferenceright)
+	if len(primerpairs) < 1000:
+		testpair(alldifferenceleft, newrightprimers)
+	if len(primerpairs) < 1000:
+		testpair(newleftprimers, alldifferenceright)
+	if len(primerpairs) < 1000:
+		testpair(alldifferenceleft, nodiffright)
+	if len(primerpairs) < 1000:
+		testpair(nodiffleft, alldifferenceright)
 
-p3temp.close()
+	p3temp.close()
 
-# check to see whether no good primer pairs found
-if not primerpairs:
-	print "\nNo GOOD primers found!"
-	sys.exit(1)
+	# check to see whether no good primer pairs found
+	if not primerpairs:
+		print "\nNo GOOD primers found!"
+		sys.exit(1)
 
-#############################
-# STEP 7: Check Primer Pairs quality
-tempout = "temp_primer_pair_test_out_" + groupname + ".txt"
-#p3cmd = primer3_path + " -default_version=2 -p3_settings_file=" + primer3_parameter_path + " -output=" + " ".join([tempout, tempin])
-p3cmd = primer3_path + " -default_version=2 -output=" + " ".join([tempout, tempin])
-print "Primer3 command 2nd time: ", p3cmd
-call(p3cmd, shell=True)
+	#############################
+	# STEP 7: Check Primer Pairs quality
+	tempout = "temp_primer_pair_test_out_" + groupname + ".txt"
+	#p3cmd = primer3_path + " -default_version=2 -p3_settings_file=" + primer3_parameter_path + " -output=" + " ".join([tempout, tempin])
+	p3cmd = primer3_path + " -default_version=2 -output=" + " ".join([tempout, tempin])
+	print "Primer3 command 2nd time: ", p3cmd
+	call(p3cmd, shell=True)
 
-# parse primer 3 primer check output
-with open(tempout) as infile:
-	for line in infile:
-		line = line.strip()
-		if "SEQUENCE_ID" in line:
-			seqid = line.split("=")[1]
-		if "PRIMER_PAIR_0_PENALTY" in line:
-			primerpairs[seqid].penalty = line.split("=")[1]
-		if "PRIMER_PAIR_0_COMPL_ANY" in line:
-			primerpairs[seqid].compl_any = line.split("=")[1]
-		if "PRIMER_PAIR_0_COMPL_END" in line:
-			primerpairs[seqid].compl_end = line.split("=")[1]
+	# parse primer 3 primer check output
+	with open(tempout) as infile:
+		for line in infile:
+			line = line.strip()
+			if "SEQUENCE_ID" in line:
+				seqid = line.split("=")[1]
+			if "PRIMER_PAIR_0_PENALTY" in line:
+				primerpairs[seqid].penalty = line.split("=")[1]
+			if "PRIMER_PAIR_0_COMPL_ANY" in line:
+				primerpairs[seqid].compl_any = line.split("=")[1]
+			if "PRIMER_PAIR_0_COMPL_END" in line:
+				primerpairs[seqid].compl_end = line.split("=")[1]
 
-#############################
-# STEP 8: filter and write output
+	#############################
+	# STEP 8: filter and write output
 
-# filter primer pairs if filter_flag == 1 and get the final list of primers
-final_primers, primer_for_blast = filter_primerpairs_for_blast(primerpairs, primer_pair_compl_any_threshold, primer_pair_compl_end_threshold, filter_flag)
+	# filter primer pairs if filter_flag == 1 and get the final list of primers
+	final_primers, primer_for_blast = filter_primerpairs_for_blast(primerpairs, primer_pair_compl_any_threshold, primer_pair_compl_end_threshold, filter_flag)
 
-#############################
-# STEP 9: blast the primers in the wheat genome if blast parameter
-blast_hit = {}
-if blast:
-	blast_hit = primer_blast(primer_for_blast) # chromosome hit for each primer
+	#############################
+	# STEP 9: blast the primers in the wheat genome if blast parameter
+	blast_hit = {}
+	if blast:
+		blast_hit = primer_blast(primer_for_blast) # chromosome hit for each primer
 
-#############################
-# STEP 10: write output
-outfile = open(out, 'w') # output file
-outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\tprimerpair_score\tprimer_diff15\tprimer_diff4\tacross_overlap\tmatched_chromosomes\n")
+	#############################
+	# STEP 10: write output
+	outfile = open(out, 'w') # output file
+	outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\tprimerpair_score\tprimer_diff15\tprimer_diff4\tacross_overlap\tmatched_chromosomes\n")
 
-for pp in final_primers:
-	pl = pp.left
-	pr = pp.right
-	outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap, blast_hit.setdefault(pl.name, "")]) + "\n")
-	outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap, blast_hit.setdefault(pr.name, "")]) + "\n")
+	for pp in final_primers:
+		pl = pp.left
+		pr = pp.right
+		outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap, blast_hit.setdefault(pl.name, "")]) + "\n")
+		outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap, blast_hit.setdefault(pr.name, "")]) + "\n")
 
-outfile.close()
+	outfile.close()
 
-print "\n\nPrimer design is finished!\n\n"
-## remove all tempotary files
-#call("rm temp_*", shell=True)
+	print "\n\nPrimer design is finished!\n\n"
+	## remove all tempotary files
+	#call("rm temp_*", shell=True)
+	return 0
 
+if __name__ == '__main__':
+    sys.exit(main())
