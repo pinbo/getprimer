@@ -385,9 +385,6 @@ def merge_dict(dx, dy):
 
 # test primer pairs
 def testpair(leftlist, rightlist, primer3_param, primerpairs):
-	tempin = "temp_primer_pair_check_input.txt"
-	p3temp = open(tempin, 'a+') # output file
-	seqtemplate = primer3_param["seq"]
 	ids = primer3_param["homeologs"] # list of other homeolog names
 	primer_pair_score_threshold = primer3_param["primer_pair_score_threshold"]
 	if primerpairs:
@@ -423,20 +420,26 @@ def testpair(leftlist, rightlist, primer3_param, primerpairs):
 						pp.score += (float(difnum) / len(ids) * 100 + float(tt) / len(ids) * 50)/ k
 					if pp.score >= primer_pair_score_threshold:
 						primerpairs[ppname] = pp
-						line1 = "SEQUENCE_ID=" + ppname
-						line2 = "PRIMER_TASK=check_primers"
-						line3 = "PRIMER_EXPLAIN_FLAG=1"
-						line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + str(product_min) + "-" + str(product_max)
-						line5 = "SEQUENCE_TEMPLATE=" + seqtemplate
-						line6 =  "SEQUENCE_PRIMER=" + pl.seq
-						line7 = "SEQUENCE_PRIMER_REVCOMP=" + ReverseComplement(pr.seq)
-						line8 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + primer3_param["TH_param_path"]
-						line9 = "="
-						p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8, line9]) + "\n")
 	print "primernumber is ", primernumber
 	print "Candidate primer pairs: ", len(primerpairs)
-	p3temp.close()
 	return primerpairs
+
+def prepare_primerpair_check_input(primerpairs, primer3_param, tempin):
+	p3temp = open(tempin, 'w') # output file
+	for nn, pp in primerpairs.items():
+		pl = pp.left
+		pr = pp.right
+		line1 = "SEQUENCE_ID=" + pp.name
+		line2 = "PRIMER_TASK=check_primers"
+		line3 = "PRIMER_EXPLAIN_FLAG=1"
+		line4 = "PRIMER_PRODUCT_SIZE_RANGE=" + primer3_param["product_range"]
+		line5 = "SEQUENCE_TEMPLATE=" + primer3_param["seq"]
+		line6 =  "SEQUENCE_PRIMER=" + pl.seq
+		line7 = "SEQUENCE_PRIMER_REVCOMP=" + ReverseComplement(pr.seq)
+		line8 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + primer3_param["TH_param_path"]
+		line9 = "="
+		p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8, line9]) + "\n")
+	p3temp.close()
 
 def filter_primerpairs_for_blast(primerpairs, primer_pair_compl_any_threshold, primer_pair_compl_end_threshold, filter_flag):
 	pp_vector = primerpairs.values()
@@ -725,13 +728,8 @@ def main():
 	# STEP 6: Select Primer Pairs
 
 	# selected primers pairs
-	#tempin = 'temp_primer_pair_check_input_' + groupname + ".txt"
-	#p3temp = open(tempin, 'w') # output file
-	#seqtemplate = fasta[mainID].replace("-","") # remove "-" in the alignment seq
-	#primernumber = 0
 	primerpairs = {} # all the pairs with the right size and Tm differences
-	tempin = "temp_primer_pair_check_input.txt"
-	# test primer pairs and write primer3 input for other parameter checks
+	# test primer pairs
 	primerpairs = testpair(alldifferenceleft, alldifferenceright, primer3_param, primerpairs)
 	if len(primerpairs) < 1000:
 		primerpairs = testpair(alldifferenceleft, newrightprimers, primer3_param, primerpairs)
@@ -741,9 +739,6 @@ def main():
 		primerpairs = testpair(alldifferenceleft, nodiffright, primer3_param, primerpairs)
 	if len(primerpairs) < 1000:
 		primerpairs = testpair(nodiffleft, alldifferenceright, primer3_param, primerpairs)
-
-	#p3temp.close()
-
 	# check to see whether no good primer pairs found
 	if not primerpairs:
 		print "\nNo GOOD primers found!"
@@ -751,8 +746,9 @@ def main():
 
 	#############################
 	# STEP 7: Check Primer Pairs quality
+	tempin = "temp_primer_pair_check_input_" + groupname + ".txt"
+	prepare_primerpair_check_input(primerpairs, primer3_param, tempin)
 	tempout = "temp_primer_pair_test_out_" + groupname + ".txt"
-	#p3cmd = primer3_path + " -default_version=2 -p3_settings_file=" + primer3_parameter_path + " -output=" + " ".join([tempout, tempin])
 	p3cmd = primer3_path + " -default_version=2 -output=" + " ".join([tempout, tempin])
 	print "Primer3 command 2nd time: ", p3cmd
 	call(p3cmd, shell=True)
@@ -797,7 +793,7 @@ def main():
 
 	print "\n\nPrimer design is finished!\n\n"
 	## remove all tempotary files
-	call("rm temp_*", shell=True)
+	#call("rm temp_*", shell=True)
 	return 0
 
 if __name__ == '__main__':
