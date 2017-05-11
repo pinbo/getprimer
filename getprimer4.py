@@ -227,16 +227,13 @@ def ReverseComplement(seq):
 
 # parse primer3 output file
 # use 0-based primer3 output
-def parse_primer3_output(handle, direction):
+def parse_primer3_output(handle, direction, overlap_region):
 	"""Iterate over primer3 output
 	"""
 	primerlist = []
 	with open(handle) as infile:
-		startread = 0
 		for line in infile:
-			if targets[0] in line:
-				startread = 1
-			if startread and direction in line:
+			if direction in line:
 				pp = line.strip().split() # split on white spaces
 				primer = Primers()
 				primer.direction = direction
@@ -259,8 +256,6 @@ def parse_primer3_output(handle, direction):
 				if set(overlap_region) & set(range(primer.start, primer.end-1)):
 					primer.overlap = "YES"
 				primerlist.append(primer)
-			if startread and "PRIMER PICKING RESULTS FOR" in line and targets[0] not in line:
-				break
 	return(primerlist)
 
 # see whether the primer has difference within target group
@@ -389,8 +384,18 @@ def merge_dict(dx, dy):
 	return(newdict)
 
 # test primer pairs
-def testpair(leftlist, rightlist):
-	global product_max, product_min, primernumber, primerpairs, p3temp, maxTmdiff
+def testpair(leftlist, rightlist, primer3_param, primerpairs):
+	tempin = "temp_primer_pair_check_input.txt"
+	p3temp = open(tempin, 'a+') # output file
+	seqtemplate = primer3_param["seq"]
+	ids = primer3_param["homeologs"] # list of other homeolog names
+	primer_pair_score_threshold = primer3_param["primer_pair_score_threshold"]
+	if primerpairs:
+		primernumber = max(int(k) for k in primerpairs) + 1
+	else:
+		primernumber = 0
+	product_min, product_max = [int(x) for x in primer3_param["product_range"].split("-")]
+	maxTmdiff = primer3_param["primer_tm_diff_max"]
 	for pl in leftlist:
 		if len(primerpairs) > 1000: # in case too many pairs of primers need to check.
 			break
@@ -425,11 +430,13 @@ def testpair(leftlist, rightlist):
 						line5 = "SEQUENCE_TEMPLATE=" + seqtemplate
 						line6 =  "SEQUENCE_PRIMER=" + pl.seq
 						line7 = "SEQUENCE_PRIMER_REVCOMP=" + ReverseComplement(pr.seq)
-						line8 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + getprimer_path + "/bin/primer3_config/"
+						line8 = "PRIMER_THERMODYNAMIC_PARAMETERS_PATH=" + primer3_param["TH_param_path"]
 						line9 = "="
 						p3temp.write("\n".join([line1, line2, line4, line5, line6, line7, line8, line9]) + "\n")
 	print "primernumber is ", primernumber
 	print "Candidate primer pairs: ", len(primerpairs)
+	p3temp.close()
+	return primerpairs
 
 def filter_primerpairs_for_blast(primerpairs, primer_pair_compl_any_threshold, primer_pair_compl_end_threshold, filter_flag):
 	pp_vector = primerpairs.values()
@@ -661,7 +668,8 @@ def main():
 		"primer_tm_min":  str(minTm),
 		"primer_tm_max": str(maxTm),
 		"primer_tm_diff_max": str(maxTmdiff),
-		"primer_hairpin_max": str(maxhairpin)
+		"primer_hairpin_max": str(maxhairpin),
+		"primer_pair_score_threshold": primer_pair_score_threshold
 		}
 	# Creat primer3 input and run primer3 to create primer lists
 	primer3output = "primer3.output"
@@ -669,8 +677,8 @@ def main():
 
 	#####################################
 	# STEP 3: parse primer3 output
-	leftprimers = parse_primer3_output(primer3output, "LEFT_PRIMER")
-	rightprimers = parse_primer3_output(primer3output, "RIGHT_PRIMER")
+	leftprimers = parse_primer3_output(primer3output, "LEFT_PRIMER", overlap_region)
+	rightprimers = parse_primer3_output(primer3output, "RIGHT_PRIMER", overlap_region)
 
 	print "Length of LEFT primers:", len(leftprimers)
 	print "Length of RIGHT primers:", len(rightprimers)
@@ -683,6 +691,7 @@ def main():
 			ids.append(key)
 
 	print "The other groups: ", ids
+	primer3_param["homeologs"] = ids
 
 	alignlen = len(fasta[targets[0]])
 	print "Alignment length: ", alignlen
@@ -716,24 +725,24 @@ def main():
 	# STEP 6: Select Primer Pairs
 
 	# selected primers pairs
-	tempin = 'temp_primer_pair_check_input_' + groupname + ".txt"
-	p3temp = open(tempin, 'w') # output file
-	seqtemplate = fasta[mainID].replace("-","") # remove "-" in the alignment seq
-	primernumber = 0
+	#tempin = 'temp_primer_pair_check_input_' + groupname + ".txt"
+	#p3temp = open(tempin, 'w') # output file
+	#seqtemplate = fasta[mainID].replace("-","") # remove "-" in the alignment seq
+	#primernumber = 0
 	primerpairs = {} # all the pairs with the right size and Tm differences
-
+	tempin = "temp_primer_pair_check_input.txt"
 	# test primer pairs and write primer3 input for other parameter checks
-	testpair(alldifferenceleft, alldifferenceright)
+	primerpairs = testpair(alldifferenceleft, alldifferenceright, primer3_param, primerpairs)
 	if len(primerpairs) < 1000:
-		testpair(alldifferenceleft, newrightprimers)
+		primerpairs = testpair(alldifferenceleft, newrightprimers, primer3_param, primerpairs)
 	if len(primerpairs) < 1000:
-		testpair(newleftprimers, alldifferenceright)
+		primerpairs = testpair(newleftprimers, alldifferenceright, primer3_param, primerpairs)
 	if len(primerpairs) < 1000:
-		testpair(alldifferenceleft, nodiffright)
+		primerpairs = testpair(alldifferenceleft, nodiffright, primer3_param, primerpairs)
 	if len(primerpairs) < 1000:
-		testpair(nodiffleft, alldifferenceright)
+		primerpairs = testpair(nodiffleft, alldifferenceright, primer3_param, primerpairs)
 
-	p3temp.close()
+	#p3temp.close()
 
 	# check to see whether no good primer pairs found
 	if not primerpairs:
@@ -788,7 +797,7 @@ def main():
 
 	print "\n\nPrimer design is finished!\n\n"
 	## remove all tempotary files
-	#call("rm temp_*", shell=True)
+	call("rm temp_*", shell=True)
 	return 0
 
 if __name__ == '__main__':
