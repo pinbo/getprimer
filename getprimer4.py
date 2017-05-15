@@ -132,6 +132,14 @@ def Tm(seq):
 			t=t+4
 	return t
 
+# calculate GC content of a sequence
+def Calc_GC(seq):
+	t = 0.0 # float
+	for a in seq:
+		if a=='C' or a=='G':
+			t += 1
+	return t / len(seq) * 100
+
 # function to find the segments with largest Tm
 def FindLongestSubstring(s1, s2):
 	longestStart = 0
@@ -387,6 +395,7 @@ def merge_dict(dx, dy):
 def testpair(leftlist, rightlist, primer3_param, primerpairs):
 	ids = primer3_param["homeologs"] # list of other homeolog names
 	primer_pair_score_threshold = primer3_param["primer_pair_score_threshold"]
+	template = primer3_param["seq"]
 	if primerpairs:
 		primernumber = max(int(k) for k in primerpairs) + 1
 	else:
@@ -412,6 +421,9 @@ def testpair(leftlist, rightlist, primer3_param, primerpairs):
 					pp.product_size = productsize
 					pp.difsite = alldifsite15
 					pp.difsite4 = alldifsite4
+					amplicon = template[pl.start - 1:pr.end]
+					pp.amplicon = amplicon
+					pp.ampliconGC = Calc_GC(amplicon)
 					# get score below
 					diffmerge = merge_dict(pl.difsitedict, pr.difsitedict)
 					for k, v in diffmerge.items():
@@ -549,6 +561,8 @@ class PrimerPair(object):
 		self.score = 0 # sum of scores of left and right primers
 		self.difsite = []
 		self.difsite4 = []
+		self.amplicon = ""
+		self.ampliconGC = 0
 
 #########################
 
@@ -781,13 +795,13 @@ def main():
 	#############################
 	# STEP 10: write output
 	outfile = open(out, 'w') # output file
-	outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\tprimerpair_score\tprimer_diff15\tprimer_diff4\tacross_overlap\tmatched_chromosomes\n")
+	outfile.write("index\tproduct_size\tprimerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tpenalty\tcompl_any\tcompl_end\tprimerpair_score\tprimer_diff15\tprimer_diff4\tacross_overlap\tampliconGC\tmatched_chromosomes\n")
 
 	for pp in final_primers:
 		pl = pp.left
 		pr = pp.right
-		outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap, blast_hit.setdefault(pl.name, "")]) + "\n")
-		outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap, blast_hit.setdefault(pr.name, "")]) + "\n")
+		outfile.write("\t".join([pp.name, str(pp.product_size), pl.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pl.difsite), str(pl.difsite4), pl.overlap, str(pp.ampliconGC), blast_hit.setdefault(pl.name, "")]) + "\n")
+		outfile.write("\t".join([pp.name, str(pp.product_size), pr.formatprimer(), pp.penalty, pp.compl_any, pp.compl_end, str(pp.score), str(pr.difsite), str(pr.difsite4), pr.overlap, str(pp.ampliconGC), blast_hit.setdefault(pr.name, "")]) + "\n")
 
 	outfile.close()
 
