@@ -141,6 +141,8 @@ There will be 3 outputs: 1. Designed Primers; 2. Primer3 input file; 3. Multiple
 
 **across_overlap**: whether the primer across the range set by the user
 
+**amplconGC**: GC content of the amplicon for optimizing PCR conditions
+
 **matched_chromosomes**: chromosomes that the primer has no more than 1 mismatches in the first 4 bases from the 3' end according to the primer blast result
 
 ------
