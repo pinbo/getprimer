@@ -78,14 +78,14 @@
 # 5/3/2017: 1. set word_size of blastn to 7; 2. set potential target of primers in the blast to: less than 2 mismatches in the first 4 3' bases.
 
 # 5/9/2017: change a lot of steps to functions and add main function
-
+# 9/15/2017: add a direction parameter for designing only left or right primers; add a uniq_3prime funcition to filter primers with the same 3' end
 
 ### Imported
 from subprocess import call
 import getopt, sys, os
 
 usage="""
-getprimer.py
+getprimer4.py
 	-i <sequence.fa>
 	-s <product min size>
 	-l <product max size>
@@ -98,6 +98,7 @@ getprimer.py
 	-e <primer_pair_compl_end_threshold: default 10>
 	-c <primer_pair_score_threshold: default 50>
 	-b <blast all produced primers against the genomes: 1 for YES and 0 for NO, default is NO>
+	-d <primer direction: 'both' for primer pair, 'left' for left primer and 'right' for right primer>
 	--mintm <primer min Tm, default 58>
 	--maxtm <primer max Tm, default 62>
 	--minsize <primer min size, default 18>
@@ -108,6 +109,29 @@ getprimer.py
 
 ###########################
 # functions to use
+
+# uniq primer ends
+def uniq_3prime (primer_list):
+	end_dict_left = {} # key is the 3' end, and value is the primer whose 3' end is closest to 60
+	end_dict_right = {}
+	for pp in primer_list:
+		if pp.direction == "LEFT_PRIMER":
+			end = pp.end
+			if end in end_dict_left:
+				if abs(end - 60.0) < abs(end_dict_left[end].end - 60.0):
+					end_dict_left[end] = pp
+			else:
+				end_dict_left[end] = pp
+		else: # right primer
+			end = pp.start
+			if end in end_dict_right:
+				if abs(end - 60.0) < abs(end_dict_right[end].start - 60.0):
+					end_dict_right[end] = pp
+			else:
+				end_dict_right[end] = pp
+	uniq_left_primers = end_dict_left.values()
+	uniq_right_primers = end_dict_right.values()
+	return uniq_left_primers + uniq_right_primers
 
 #from sys import platform
 def get_software_path(base_path):
@@ -580,8 +604,9 @@ def main():
 	maxTmdiff = 2
 	minSize = 18
 	maxSize = 23
-	maxhairpin = 35 # web_v4 default is 24. primer3 default is 47
+	maxhairpin = 45 # web_v4 default is 24. primer3 default is 47
 	blast = 0 # whether blast to check the primer specificity
+	primer_direction = "both" # options: both, left, right
 
 	getprimer_path = os.path.dirname(os.path.realpath(__file__))
 	rangelimit = 15 # only find difference in the first a few nt from 3' end of each primer
@@ -593,7 +618,7 @@ def main():
 	print "Parsing command line options"
 
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:a:e:c:b:h", ["help", "mintm=", "maxtm=", "minsize=", "maxsize=", "maxtmdiff=", "maxhairpin="])
+		opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:a:e:c:b:d:h", ["help", "mintm=", "maxtm=", "minsize=", "maxsize=", "maxtmdiff=", "maxhairpin="])
 	except getopt.GetoptError as err:
 		# print help information and exit:
 		print str(err)  # will print something like "option -a not recognized"
@@ -630,6 +655,8 @@ def main():
 			primer_pair_score_threshold = int(a)
 		elif o in ("-b"):
 			blast = int(a)
+		elif o in ("-d"):
+			primer_direction = a
 		elif o in ("-v"):
 			regions = a.split(",")
 			for rr in regions:
@@ -696,7 +723,10 @@ def main():
 	# STEP 3: parse primer3 output
 	leftprimers = parse_primer3_output(primer3output, "LEFT_PRIMER", overlap_region)
 	rightprimers = parse_primer3_output(primer3output, "RIGHT_PRIMER", overlap_region)
-
+	
+	leftprimers = uniq_3prime(leftprimers)
+	rightprimers = uniq_3prime(rightprimers)
+	
 	print "Length of LEFT primers:", len(leftprimers)
 	print "Length of RIGHT primers:", len(rightprimers)
 
@@ -732,12 +762,30 @@ def main():
 	print "number of left primers that can diff all:",
 	print len(alldifferenceleft)
 	print "Number of selected LEFT primers", len(newleftprimers)
+	# if direction is left, write out the primer and then stop
+	if primer_direction == "left":
+		outfile = open(out, 'w') # output file
+		outfile.write("primerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tprimer_diff15\tprimer_diff4\tacross_overlap\n")
+		for pl in alldifferenceleft:
+			outfile.write("\t".join([pl.formatprimer(), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
+		outfile.close()
+		print "\n\nPrimer design is finished!\n\n"
+		return 0	
+
 	# selected right primers
 	newrightprimers, alldifferenceright, nodiffright = group_primers(rightprimers, fasta, t2a, targets, ids)
 	print "number of right primers that can diff all:",
 	print len(alldifferenceright)
 	print "Number of selected RIGHT primers", len(newrightprimers)
-
+	# if direction is right, write out the primer and then stop
+	if primer_direction == "right":
+		outfile = open(out, 'w') # output file
+		outfile.write("primerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tprimer_diff15\tprimer_diff4\tacross_overlap\n")
+		for pr in alldifferenceright:
+			outfile.write("\t".join([pr.formatprimer(), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
+		outfile.close()
+		print "\n\nPrimer design is finished!\n\n"
+		return 0
 	#############################
 	# STEP 6: Select Primer Pairs
 
