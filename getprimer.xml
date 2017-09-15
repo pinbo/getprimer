@@ -6,8 +6,8 @@
     <param format="fasta" name="input" type="data" label="Homeolog sequences (a fasta file with all the homeolog sequences)"/>
     <param name="targets" size="100" type="text" value="" label="Primer target sequence name(s) (Separated with commas)"/>
     <param name="blast" type="select" label="Blast the output primers in the wheat genome?" help="If yes, will blast against Chinese_Spring_v1.0_pseudomolecules.">
-        <option value="1">Yes</option>
         <option value="0">No</option>
+        <option value="1">Yes</option>
     </param>
     <param name="direction" type="select" label="Design left primers, right primers or primer pairs?" help="Sometimes we only need to design left or right primers, then select here">
         <option value="both">Primer Pairs</option>
@@ -20,7 +20,7 @@
 	<param name="mintm" size="4" type="integer" value="58" label="Minimum primer Tm"/>
 	<param name="maxtm" size="4" type="integer" value="62" label="Maximum primer Tm"/>
 	<param name="maxtmdiff" size="4" type="integer" value="2" label="Maximum Tm differences between left and right primers"/>
-	<param name="maxhairpin" size="4" type="integer" value="35" label="Maximum hairpin score of primers"/>
+	<param name="maxhairpin" size="4" type="integer" value="45" label="Maximum hairpin score of primers"/>
 	<param name="minsize" size="4" type="integer" value="18" label="Minimum primer size"/>
 	<param name="maxsize" size="4" type="integer" value="23" label="Maximum primer size"/> 
   </inputs>

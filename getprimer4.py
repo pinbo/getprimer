@@ -118,14 +118,14 @@ def uniq_3prime (primer_list):
 		if pp.direction == "LEFT_PRIMER":
 			end = pp.end
 			if end in end_dict_left:
-				if abs(end - 60.0) < abs(end_dict_left[end].end - 60.0):
+				if abs(pp.tm - 60.0) < abs(end_dict_left[end].tm - 60.0):
 					end_dict_left[end] = pp
 			else:
 				end_dict_left[end] = pp
 		else: # right primer
 			end = pp.start
 			if end in end_dict_right:
-				if abs(end - 60.0) < abs(end_dict_right[end].start - 60.0):
+				if abs(pp.tm - 60.0) < abs(end_dict_right[end].tm - 60.0):
 					end_dict_right[end] = pp
 			else:
 				end_dict_right[end] = pp
