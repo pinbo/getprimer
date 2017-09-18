@@ -79,6 +79,10 @@
 
 # 5/9/2017: change a lot of steps to functions and add main function
 # 9/15/2017: add a direction parameter for designing only left or right primers; add a uniq_3prime funcition to filter primers with the same 3' end
+# 9/17/2017: change the direction option to either "both" or "single", since it did not take too much time to get both left and right primers.
+
+
+
 
 ### Imported
 from subprocess import call
@@ -762,25 +766,17 @@ def main():
 	print "number of left primers that can diff all:",
 	print len(alldifferenceleft)
 	print "Number of selected LEFT primers", len(newleftprimers)
-	# if direction is left, write out the primer and then stop
-	if primer_direction == "left":
-		outfile = open(out, 'w') # output file
-		outfile.write("primerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tprimer_diff15\tprimer_diff4\tacross_overlap\n")
-		for pl in alldifferenceleft:
-			outfile.write("\t".join([pl.formatprimer(), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
-		outfile.close()
-		print "\n\nPrimer design is finished!\n\n"
-		return 0	
-
 	# selected right primers
 	newrightprimers, alldifferenceright, nodiffright = group_primers(rightprimers, fasta, t2a, targets, ids)
 	print "number of right primers that can diff all:",
 	print len(alldifferenceright)
 	print "Number of selected RIGHT primers", len(newrightprimers)
 	# if direction is right, write out the primer and then stop
-	if primer_direction == "right":
+	if primer_direction == "single":
 		outfile = open(out, 'w') # output file
 		outfile.write("primerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tprimer_diff15\tprimer_diff4\tacross_overlap\n")
+		for pl in alldifferenceleft:
+			outfile.write("\t".join([pl.formatprimer(), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
 		for pr in alldifferenceright:
 			outfile.write("\t".join([pr.formatprimer(), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
 		outfile.close()

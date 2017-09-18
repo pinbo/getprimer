@@ -9,10 +9,9 @@
         <option value="0">No</option>
         <option value="1">Yes</option>
     </param>
-    <param name="direction" type="select" label="Design left primers, right primers or primer pairs?" help="Sometimes we only need to design left or right primers, then select here">
+    <param name="direction" type="select" label="Design single (independent left and right primers) or primer pairs?" help="Sometimes we only need to design left or right primers, then select here">
         <option value="both">Primer Pairs</option>
-        <option value="left">Left Primers</option>
-        <option value="right">Right Primers</option>
+        <option value="single">Single Primers</option>
     </param>
     <param name="overlap" size="100" type="text" value="0-1" label="Check whether primers across these position ranges (Separated with commas, such as 59-60,300-400)" help="The default 0-1 will do nothing. The input must be a range, eg. n1-n2. Change the values here to check other ranges"/>
     <param name="min_size" size="4" type="integer" value="300" label="Minimum product size"/>
