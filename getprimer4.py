@@ -80,8 +80,7 @@
 # 5/9/2017: change a lot of steps to functions and add main function
 # 9/15/2017: add a direction parameter for designing only left or right primers; add a uniq_3prime funcition to filter primers with the same 3' end
 # 9/17/2017: change the direction option to either "both" or "single", since it did not take too much time to get both left and right primers.
-
-
+# 05/06/2018: use algnment score to compare the best alignment when there are gaps
 
 
 ### Imported
@@ -102,7 +101,7 @@ getprimer4.py
 	-e <primer_pair_compl_end_threshold: default 10>
 	-c <primer_pair_score_threshold: default 50>
 	-b <blast all produced primers against the genomes: 1 for YES and 0 for NO, default is NO>
-	-d <primer direction: 'both' for primer pair, 'left' for left primer and 'right' for right primer>
+	-d <primer direction: 'both' for primer pair, 'single' for left primer and right primer>
 	--mintm <primer min Tm, default 58>
 	--maxtm <primer max Tm, default 62>
 	--minsize <primer min size, default 18>
@@ -304,14 +303,42 @@ def exclude_primer(pp, targets, fasta, align_left, align_right):
 			break
 	return exclude
 
+# alignment score
+def score_pairwise(seq1, seq2, gapopen = -3.0, gapext = -1.0, match = 1.0, mismatch = -1.0):
+	score = 0
+	gap = False
+	for i in range(len(seq1)):
+		pair = (seq1[i], seq2[i])
+		if not gap:
+			if '-' in pair:
+				gap = True
+				score += gapopen
+			elif seq1[i] == seq2[i]:
+				score += match
+			else:
+				score += mismatch
+		else:
+			if '-' not in pair:
+				gap = False
+				if seq1[i] == seq2[i]:
+					score += match
+				else:
+					score += mismatch
+			else:
+				score += gapext
+	return score
+
 # get the list of sequences in the homeolog groups for comparison with current primer
 def get_homeo_seq(fasta, mainID, ids, align_left, align_right):
-	s1 = fasta[mainID] # primer sequence in the template with gaps
+	s1 = fasta[mainID] # template with gaps
 	seq2comp = [] # final sequence to compare for each other homeolog
 	for k in ids:
-		s2 = fasta[k]
-		targetSeq = s1[align_left:(align_right + 1)]
-		homeoSeq = s2[align_left:(align_right + 1)]
+		s2 = fasta[k] # homeolog with gaps
+		targetSeq = s1[align_left:(align_right + 1)] # primer sequence in the template with gaps
+		homeoSeq = s2[align_left:(align_right + 1)] # homeo sequence with gaps
+		# Tm1 is the Tm before removing gaps
+		#Tm1 = NN_Tm(seq=targetSeq, compl_seq=complement(homeoSeq), primer_conc=primer_conc, Na=Na, K=K, Tris=Tris, Mg=Mg, dNTPs=dNTPs, ion_corr=True)
+		score1 = score_pairwise(targetSeq, homeoSeq) # score in multiple alignment
 		# Get the sequences for comparison
 		indexL, indexR, nL, nR = FindLongestSubstring(targetSeq, homeoSeq)
 		indexL += align_left
@@ -325,6 +352,15 @@ def get_homeo_seq(fasta, mainID, ids, align_left, align_right):
 		if len(seqR) < nR:
 			seqL = seqR + "-" * (nR - len(seqR))
 		seqk = seqL[::-1][:nL][::-1] + s2[indexL:indexR] + seqR[:nR]
+		# Tm2 is the Tm after removing gaps
+		#Tm2 = NN_Tm(seq=targetSeq.replace("-",""), compl_seq=complement(seqk), primer_conc=primer_conc, Na=Na, K=K, Tris=Tris, Mg=Mg, dNTPs=dNTPs, ion_corr=True)
+		score2 = score_pairwise(targetSeq.replace("-",""), seqk)
+		#if Tm1 > Tm2: # if no shifting has higher Tm, then use homeoSeq but remove all the gaps
+		if score1 > score2:
+			print "homeoSeq but remove all the gaps"
+			print "targetSeq:", targetSeq
+			print "homeoSeq :", homeoSeq
+			seqk = "".join([homeoSeq[i] for i, c in enumerate(targetSeq) if c!='-'])
 		seq2comp.append(seqk)
 		print k, "\t", seqk
 	return seq2comp
