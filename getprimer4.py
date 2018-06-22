@@ -376,6 +376,21 @@ def get_homeo_seq(fasta, mainID, ids, align_left, align_right):
 		print k, "\t", seqk
 	return seq2comp
 
+# get common primers when needing to design primers targeting all sequences, eg. when ids = []
+def get_common_primers(primerlist, fasta):
+	new_primers = [] # primers that are in all sequences
+	nseq = len(fasta) # number of sequences in the fasta dict
+	for pp in primerlist:
+		seq = pp.seq # primer sequence
+		n = 0
+		for i in fasta:
+			if seq in fasta[i]:
+				n += 1
+		if n == nseq: # if the primer sequence in all
+			new_primers.append(pp)
+	return new_primers
+
+
 # group primers into different category: differ all, differ some, or no differ from the homeolog
 def group_primers(primerlist, fasta, t2a, targets, ids):
 	new_primers = [] # primers that are different between target group and the others but cannot differ all.
@@ -511,6 +526,36 @@ def testpair(leftlist, rightlist, primer3_param, primerpairs):
 	print "Candidate primer pairs: ", len(primerpairs)
 	return primerpairs
 
+# test primer pairs
+def testpair2(leftlist, rightlist, primer3_param):
+	primerpairs = {}
+	primer_pair_score_threshold = primer3_param["primer_pair_score_threshold"]
+	template = primer3_param["seq"]
+	primernumber = 0
+	product_min, product_max = [int(x) for x in primer3_param["product_range"].split("-")]
+	maxTmdiff = primer3_param["primer_tm_diff_max"]
+	for pl in leftlist:
+		if len(primerpairs) > 1000: # in case too many pairs of primers need to check.
+			break
+		for pr in rightlist:
+			if pl.end < pr.start and abs(pl.tm - pr.tm) <= maxTmdiff:
+				productsize = pr.end - pl.start + 1
+				if productsize >= product_min and productsize <= product_max:
+					primernumber += 1
+					ppname = str(primernumber)
+					pp = PrimerPair()
+					pp.name = ppname
+					pp.left = pl
+					pp.right = pr
+					pp.product_size = productsize
+					amplicon = template[pl.start - 1:pr.end]
+					pp.amplicon = amplicon
+					pp.ampliconGC = Calc_GC(amplicon)
+					primerpairs[ppname] = pp
+	print "primernumber is ", primernumber
+	print "Candidate primer pairs: ", len(primerpairs)
+	return primerpairs
+	
 def prepare_primerpair_check_input(primerpairs, primer3_param, tempin):
 	p3temp = open(tempin, 'w') # output file
 	for nn, pp in primerpairs.items():
@@ -790,64 +835,86 @@ def main():
 
 	print "The other groups: ", ids
 	primer3_param["homeologs"] = ids
+	
+	## if ids are empty
+	if !ids:
+		newleftprimers = get_common_primers(leftprimers, fasta)
+		newrightprimers = get_common_primers(rightprimers, fasta)
+		# if direction is right, write out the primer and then stop
+		if primer_direction == "single":
+			outfile = open(out, 'w') # output file
+			outfile.write("primerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tprimer_diff15\tprimer_diff4\tacross_overlap\n")
+			for pl in newleftprimers:
+				outfile.write("\t".join([pl.formatprimer(), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
+			for pr in newrightprimers:
+				outfile.write("\t".join([pr.formatprimer(), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
+			outfile.close()
+			print "\n\nPrimer design is finished!\n\n"
+			return 0
+		## TEST PRIMER PAIRS
+		primerpairs = testpair2(newleftprimers, newrightprimers, primer3_param)
+		if not primerpairs:
+			print "\nNo GOOD primers found!"
+			sys.exit(1)
+	##### IF ids are not empty #####
+	else:
+		alignlen = len(fasta[targets[0]])
+		print "Alignment length: ", alignlen
 
-	alignlen = len(fasta[targets[0]])
-	print "Alignment length: ", alignlen
+		# get the target ID template base coordinate in the alignment
+		t2a = {} # template to alignment
+		ngap = 0 # gaps
+		for i in range(alignlen):
+			if fasta[mainID][i] == "-":
+				ngap += 1
+				continue
+			t2a[i - ngap] = i
 
-	# get the target ID template base coordinate in the alignment
-	t2a = {} # template to alignment
-	ngap = 0 # gaps
-	for i in range(alignlen):
-		if fasta[mainID][i] == "-":
-			ngap += 1
-			continue
-		t2a[i - ngap] = i
+		print "last key of t2a", i - ngap
 
-	print "last key of t2a", i - ngap
+		###################################
+		# STEP 5: filter primers with variations
 
-	###################################
-	# STEP 5: filter primers with variations
+		# selected left primers
+		newleftprimers, alldifferenceleft, nodiffleft = group_primers(leftprimers, fasta, t2a, targets, ids)
+		print "number of left primers that can diff all:",
+		print len(alldifferenceleft)
+		print "Number of selected LEFT primers", len(newleftprimers)
+		# selected right primers
+		newrightprimers, alldifferenceright, nodiffright = group_primers(rightprimers, fasta, t2a, targets, ids)
+		print "number of right primers that can diff all:",
+		print len(alldifferenceright)
+		print "Number of selected RIGHT primers", len(newrightprimers)
+		# if direction is right, write out the primer and then stop
+		if primer_direction == "single":
+			outfile = open(out, 'w') # output file
+			outfile.write("primerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tprimer_diff15\tprimer_diff4\tacross_overlap\n")
+			for pl in alldifferenceleft:
+				outfile.write("\t".join([pl.formatprimer(), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
+			for pr in alldifferenceright:
+				outfile.write("\t".join([pr.formatprimer(), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
+			outfile.close()
+			print "\n\nPrimer design is finished!\n\n"
+			return 0
+		#############################
+		# STEP 6: Select Primer Pairs
 
-	# selected left primers
-	newleftprimers, alldifferenceleft, nodiffleft = group_primers(leftprimers, fasta, t2a, targets, ids)
-	print "number of left primers that can diff all:",
-	print len(alldifferenceleft)
-	print "Number of selected LEFT primers", len(newleftprimers)
-	# selected right primers
-	newrightprimers, alldifferenceright, nodiffright = group_primers(rightprimers, fasta, t2a, targets, ids)
-	print "number of right primers that can diff all:",
-	print len(alldifferenceright)
-	print "Number of selected RIGHT primers", len(newrightprimers)
-	# if direction is right, write out the primer and then stop
-	if primer_direction == "single":
-		outfile = open(out, 'w') # output file
-		outfile.write("primerID\ttype\tstart\tend\tlength\tTm\tGCcontent\tany\t3'\thairpin\tprimer_nvar\t3'Diff\tDiffAll\tDifNumber\tprimer_score\tprimer_seq\tReverseComplement\tprimer_diff15\tprimer_diff4\tacross_overlap\n")
-		for pl in alldifferenceleft:
-			outfile.write("\t".join([pl.formatprimer(), str(pl.difsite), str(pl.difsite4), pl.overlap]) + "\n")
-		for pr in alldifferenceright:
-			outfile.write("\t".join([pr.formatprimer(), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
-		outfile.close()
-		print "\n\nPrimer design is finished!\n\n"
-		return 0
-	#############################
-	# STEP 6: Select Primer Pairs
-
-	# selected primers pairs
-	primerpairs = {} # all the pairs with the right size and Tm differences
-	# test primer pairs
-	primerpairs = testpair(alldifferenceleft, alldifferenceright, primer3_param, primerpairs)
-	if len(primerpairs) < 1000:
-		primerpairs = testpair(alldifferenceleft, newrightprimers, primer3_param, primerpairs)
-	if len(primerpairs) < 1000:
-		primerpairs = testpair(newleftprimers, alldifferenceright, primer3_param, primerpairs)
-	if len(primerpairs) < 1000:
-		primerpairs = testpair(alldifferenceleft, nodiffright, primer3_param, primerpairs)
-	if len(primerpairs) < 1000:
-		primerpairs = testpair(nodiffleft, alldifferenceright, primer3_param, primerpairs)
-	# check to see whether no good primer pairs found
-	if not primerpairs:
-		print "\nNo GOOD primers found!"
-		sys.exit(1)
+		# selected primers pairs
+		primerpairs = {} # all the pairs with the right size and Tm differences
+		# test primer pairs
+		primerpairs = testpair(alldifferenceleft, alldifferenceright, primer3_param, primerpairs)
+		if len(primerpairs) < 1000:
+			primerpairs = testpair(alldifferenceleft, newrightprimers, primer3_param, primerpairs)
+		if len(primerpairs) < 1000:
+			primerpairs = testpair(newleftprimers, alldifferenceright, primer3_param, primerpairs)
+		if len(primerpairs) < 1000:
+			primerpairs = testpair(alldifferenceleft, nodiffright, primer3_param, primerpairs)
+		if len(primerpairs) < 1000:
+			primerpairs = testpair(nodiffleft, alldifferenceright, primer3_param, primerpairs)
+		# check to see whether no good primer pairs found
+		if not primerpairs:
+			print "\nNo GOOD primers found!"
+			sys.exit(1)
 
 	#############################
 	# STEP 7: Check Primer Pairs quality
