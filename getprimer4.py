@@ -837,7 +837,7 @@ def main():
 	primer3_param["homeologs"] = ids
 	
 	## if ids are empty
-	if !ids:
+	if not ids:
 		newleftprimers = get_common_primers(leftprimers, fasta)
 		newrightprimers = get_common_primers(rightprimers, fasta)
 		# if direction is right, write out the primer and then stop
