@@ -1,12 +1,13 @@
 <tool id="genome_blast" name="Blast and get matched sequences">
   <description>blast cDNA libraries</description>
-  <command>blastn -task blastn -db $genome -query $input -outfmt "7 std qlen slen qseq sseq" -num_threads 3 -word_size $word_size -num_alignments 50 -evalue 1e-5 -out genome_blast.txt
+  <command>blastn -task blastn -db $genome -query $input -outfmt "7 std qlen slen qseq sseq" -num_threads 3 -word_size $word_size -num_alignments 50 -evalue $evalue -out genome_blast.txt
   </command>
   
   <inputs>
     <param format="fasta" name="input" type="data" label="Sequences to blast"/>
-	<param name="word_size" size="100" type="text" value="11" label="Primer target sequence name(s) (Separated with commas)"/>
-    <param name="genome" type="select" label="Transcript library to search" help="Default is wheat IWGSC v1.1 (gene names has 02G), where the gene names are different from v1.0 (gene name is 01G): TraesCS1B02G018700 vs. TraesCS1B01G018700">
+	<param name="word_size" size="100" type="text" value="11" label="Word size (>=4)"/>
+	<param name="evalue" size="100" type="text" value="1" label="Word size (>=4)" help="evalue, such as 1, 0.1, 1e-5 etc"/>
+    <param name="genome" type="select" label="BLAST library to search" help="Default is Chinese Spring IWGSC RefSeq V1.0>
         <option value="/Library/WebServer/Documents/blast/db/nucleotide/161010_Chinese_Spring_v1.0_pseudomolecules.fasta">Wheat IWGSC_RefSeq_v1.0</option>
         <option value="/Library/WebServer/Documents/blast/db/nucleotide/1RS_abyss_k71-scaffolds.fa">1RS arm</option>
 		<option value="/Library/WebServer/Documents/blast/db/nucleotide/distal_abyss_k71-scaffolds.fa">RW arm</option>
