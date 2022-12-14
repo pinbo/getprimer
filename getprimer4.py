@@ -81,7 +81,7 @@
 # 9/15/2017: add a direction parameter for designing only left or right primers; add a uniq_3prime funcition to filter primers with the same 3' end
 # 9/17/2017: change the direction option to either "both" or "single", since it did not take too much time to get both left and right primers.
 # 05/06/2018: use algnment score to compare the best alignment when there are gaps
-
+# 12/13/2022: change to python3
 
 ### Imported
 from subprocess import call
@@ -132,8 +132,8 @@ def uniq_3prime (primer_list):
 					end_dict_right[end] = pp
 			else:
 				end_dict_right[end] = pp
-	uniq_left_primers = end_dict_left.values()
-	uniq_right_primers = end_dict_right.values()
+	uniq_left_primers = list(end_dict_left.values())
+	uniq_right_primers = list(end_dict_right.values())
 	return uniq_left_primers + uniq_right_primers
 
 #from sys import platform
@@ -190,7 +190,7 @@ def FindLongestSubstring(s1, s2):
 # function to creat alignment file
 def get_alignment(muscle_path, infile, outfile):
 	alignmentcmd = muscle_path + " -in " + infile + " -out " + outfile + " -quiet"
-	print "Alignment command: ", alignmentcmd
+	print ("Alignment command: ", alignmentcmd)
 	call(alignmentcmd, shell=True)
 
 # function to extract sequences from a fasta file 
@@ -218,8 +218,8 @@ def format_alignment(fasta):
 			max_gap_left = nL
 		if nR > max_gap_right:
 			max_gap_right = nR
-	print "Gap left: ", max_gap_left
-	print "Gap right: ", max_gap_right
+	print ("Gap left: ", max_gap_left)
+	print ("Gap right: ", max_gap_right)
 	### striping sequences to equal length
 	for k, v in fasta.items():
 		fasta[k] = v[max_gap_left:(len(v) - max_gap_right)]
@@ -251,7 +251,7 @@ def get_primers(primer3_param, primer3_path, primer3output):
 	# primer3 output file
 	#p3cmd = primer3_path + " -default_version=2 -format_output -p3_settings_file=" + primer3_parameter_path + " -output=" + primer3output + " " + primer3input
 	p3cmd = primer3_path + " -default_version=2 -format_output -output=" + primer3output + " " + primer3input
-	print "Primer3 command 1st time: ", p3cmd
+	print ("Primer3 command 1st time: ", p3cmd)
 	call(p3cmd, shell=True)
 
 # function to get reverse complement
@@ -355,8 +355,8 @@ def get_homeo_seq(fasta, mainID, ids, align_left, align_right):
 		indexR += align_left
 		seqL = s2[:indexL].replace("-","")
 		seqR = s2[indexR:].replace("-","")
-		print "indexL, indexR, nL, nR ", indexL, indexR, nL, nR
-		print "s2[indexL:indexR] ", s2[indexL:indexR]
+		print ("indexL, indexR, nL, nR ", indexL, indexR, nL, nR)
+		print ("s2[indexL:indexR] ", s2[indexL:indexR])
 		if len(seqL) < nL: # in case it does not have enough bases
 			seqL = "-" * (nL - len(seqL)) + seqL
 		if len(seqR) < nR:
@@ -369,12 +369,12 @@ def get_homeo_seq(fasta, mainID, ids, align_left, align_right):
 		# if there are more than 3 gaps, the Tm usually will be 10 C lower than the perfect match
 		# so just use gap shift 
 		if score1 > score2 and gap_diff(targetSeq, homeoSeq) < 4:
-			print "homeoSeq but remove all the gaps"
-			print "targetSeq:", targetSeq
-			print "homeoSeq :", homeoSeq
+			print ("homeoSeq but remove all the gaps")
+			print ("targetSeq:", targetSeq)
+			print ("homeoSeq :", homeoSeq)
 			seqk = "".join([homeoSeq[i] for i, c in enumerate(targetSeq) if c!='-'])
 		seq2comp.append(seqk)
-		print k, "\t", seqk
+		print (k, "\t", seqk)
 	return seq2comp
 
 # get common primers when needing to design primers targeting all sequences, eg. when ids = []
@@ -414,7 +414,7 @@ def group_primers(primerlist, fasta, t2a, targets, ids):
 
 # function to get primer variations
 def getvar(pp, fasta, t2a, targets, ids): # pp is a Primer object
-	print "pp.seq ", pp.seq
+	print ("pp.seq ", pp.seq)
 	pp.difsite = [0] * len(ids) # initialize the number of differnt bases from other sequences
 	pp.difsite4 = [0] * len(ids) # initialize the number of differnt bases from other sequences
 	mainID = targets[0] # the one whose primer3 output will be used
@@ -423,7 +423,7 @@ def getvar(pp, fasta, t2a, targets, ids): # pp is a Primer object
 	if exclude_primer(pp, targets, fasta, align_left, align_right): # if not match all targets
 		return 0
 	# if it is good for all targets
-	print "pp.seq\t", pp.seq
+	print ("pp.seq\t", pp.seq)
 	### Idea: split the sequences by "-", find the piece that has the largest Tm, then extended that.
 	seq2comp = get_homeo_seq(fasta, mainID, ids, align_left, align_right) # list of sequences for comparison
 	diffarray = [] # to record difference with each other seq in each site, for primer pair selection later
@@ -492,7 +492,7 @@ def testpair(leftlist, rightlist, primer3_param, primerpairs):
 	else:
 		primernumber = 0
 	product_min, product_max = [int(x) for x in primer3_param["product_range"].split("-")]
-	maxTmdiff = primer3_param["primer_tm_diff_max"]
+	maxTmdiff = int(primer3_param["primer_tm_diff_max"])
 	for pl in leftlist:
 		if len(primerpairs) > 1000: # in case too many pairs of primers need to check.
 			break
@@ -523,8 +523,8 @@ def testpair(leftlist, rightlist, primer3_param, primerpairs):
 						pp.score += (float(difnum) / len(ids) * 100 + float(tt) / len(ids) * 50)/ k
 					if pp.score >= primer_pair_score_threshold:
 						primerpairs[ppname] = pp
-	print "primernumber is ", primernumber
-	print "Candidate primer pairs: ", len(primerpairs)
+	print ("primernumber is ", primernumber)
+	print ("Candidate primer pairs: ", len(primerpairs))
 	return primerpairs
 
 # test primer pairs
@@ -534,7 +534,7 @@ def testpair2(leftlist, rightlist, primer3_param):
 	template = primer3_param["seq"]
 	primernumber = 0
 	product_min, product_max = [int(x) for x in primer3_param["product_range"].split("-")]
-	maxTmdiff = primer3_param["primer_tm_diff_max"]
+	maxTmdiff = int(primer3_param["primer_tm_diff_max"])
 	for pl in leftlist:
 		if len(primerpairs) > 1000: # in case too many pairs of primers need to check.
 			break
@@ -553,8 +553,8 @@ def testpair2(leftlist, rightlist, primer3_param):
 					pp.amplicon = amplicon
 					pp.ampliconGC = Calc_GC(amplicon)
 					primerpairs[ppname] = pp
-	print "primernumber is ", primernumber
-	print "Candidate primer pairs: ", len(primerpairs)
+	print ("primernumber is ", primernumber)
+	print ("Candidate primer pairs: ", len(primerpairs))
 	return primerpairs
 	
 def prepare_primerpair_check_input(primerpairs, primer3_param, tempin):
@@ -575,7 +575,7 @@ def prepare_primerpair_check_input(primerpairs, primer3_param, tempin):
 	p3temp.close()
 
 def filter_primerpairs_for_blast(primerpairs, primer_pair_compl_any_threshold, primer_pair_compl_end_threshold, filter_flag):
-	pp_vector = primerpairs.values()
+	pp_vector = list(primerpairs.values())
 	pp_vector.sort(key=lambda x: x.score, reverse=True)
 	exist_left = []
 	exist_right = []
@@ -614,7 +614,7 @@ def primer_blast(primer_for_blast):
 	### for blast
 	reference = "/Library/WebServer/Documents/blast/db/nucleotide/161010_Chinese_Spring_v1.0_pseudomolecules.fasta"
 	cmd2 = 'blastn -task blastn -db ' + reference + ' -query for_blast.fa -outfmt "6 std qseq sseq qlen slen" -num_threads 3 -word_size 7 -out blast_out.txt'
-	print "Step 2: Blast command:\n", cmd2
+	print ("Step 2: Blast command:\n", cmd2)
 	call(cmd2, shell=True)
 	# process blast file
 	# blast fields
@@ -712,20 +712,20 @@ def main():
 	overlap_region = [] # intron region
 	filter_flag = 0 # whether to filter the primers to remove primers in the same positions
 	# read command line options
-	print "Parsing command line options"
+	print ("Parsing command line options")
 
 	try:
 		opts, args = getopt.getopt(sys.argv[1:], "i:p:s:l:g:r:o:m:v:f:a:e:c:b:d:h", ["help", "mintm=", "maxtm=", "minsize=", "maxsize=", "maxtmdiff=", "maxhairpin="])
 	except getopt.GetoptError as err:
 		# print help information and exit:
-		print str(err)  # will print something like "option -a not recognized"
-		print usage
+		print (str(err) ) # will print something like "option -a not recognized"
+		print (usage)
 		sys.exit(2)
 	for o, a in opts:
 		if o == "-i":
 			seqfile = a
 		elif o in ("-h", "--help"):
-			print usage
+			print (usage)
 			sys.exit()
 		elif o in ("-p"):
 			getprimer_path = a
@@ -735,7 +735,7 @@ def main():
 			product_max = int(a)
 		elif o in ("-g"):
 			targets = a.split(",")
-			print targets
+			print (targets)
 		elif o in ("-o"):
 			out = a
 		elif o in ("-m"):
@@ -761,8 +761,6 @@ def main():
 				overlap_region += range(int(r1), int(r2)+1)
 		elif o in ("--mintm"):
 			minTm = int(a)
-		elif o in ("--mintm"):
-			minTm = int(a)
 		elif o in ("--maxtm"):
 			maxTm = int(a)
 		elif o in ("--minsize"):
@@ -775,9 +773,9 @@ def main():
 			maxhairpin = int(a)
 		else:
 			assert False, "unhandled option"
-	print "Options done"
+	print ("Options done")
 	if not targets:
-		print "Please give the sequence IDs for primer design!"
+		print ("Please give the sequence IDs for primer design!")
 		sys.exit(1)
 
 	groupname = "-".join(targets)
@@ -824,8 +822,8 @@ def main():
 	leftprimers = uniq_3prime(leftprimers)
 	rightprimers = uniq_3prime(rightprimers)
 	
-	print "Length of LEFT primers:", len(leftprimers)
-	print "Length of RIGHT primers:", len(rightprimers)
+	print ("Length of LEFT primers:", len(leftprimers))
+	print ("Length of RIGHT primers:", len(rightprimers))
 
 	###########################
 	# STEP 4: get the primer start and end positions on the alignment
@@ -834,7 +832,7 @@ def main():
 		if key not in targets:
 			ids.append(key)
 
-	print "The other groups: ", ids
+	print ("The other groups: ", ids)
 	primer3_param["homeologs"] = ids
 	
 	## if ids are empty
@@ -850,17 +848,17 @@ def main():
 			for pr in newrightprimers:
 				outfile.write("\t".join([pr.formatprimer(), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
 			outfile.close()
-			print "\n\nPrimer design is finished!\n\n"
+			print ("\n\nPrimer design is finished!\n\n")
 			return 0
 		## TEST PRIMER PAIRS
 		primerpairs = testpair2(newleftprimers, newrightprimers, primer3_param)
 		if not primerpairs:
-			print "\nNo GOOD primers found!"
+			print ("\nNo GOOD primers found!")
 			sys.exit(1)
 	##### IF ids are not empty #####
 	else:
 		alignlen = len(fasta[targets[0]])
-		print "Alignment length: ", alignlen
+		print ("Alignment length: ", alignlen)
 
 		# get the target ID template base coordinate in the alignment
 		t2a = {} # template to alignment
@@ -871,21 +869,21 @@ def main():
 				continue
 			t2a[i - ngap] = i
 
-		print "last key of t2a", i - ngap
+		print ("last key of t2a", i - ngap)
 
 		###################################
 		# STEP 5: filter primers with variations
 
 		# selected left primers
 		newleftprimers, alldifferenceleft, nodiffleft = group_primers(leftprimers, fasta, t2a, targets, ids)
-		print "number of left primers that can diff all:",
-		print len(alldifferenceleft)
-		print "Number of selected LEFT primers", len(newleftprimers)
+		print ("number of left primers that can diff all:")
+		print (len(alldifferenceleft))
+		print ("Number of selected LEFT primers", len(newleftprimers) )
 		# selected right primers
 		newrightprimers, alldifferenceright, nodiffright = group_primers(rightprimers, fasta, t2a, targets, ids)
-		print "number of right primers that can diff all:",
-		print len(alldifferenceright)
-		print "Number of selected RIGHT primers", len(newrightprimers)
+		print ("number of right primers that can diff all:")
+		print (len(alldifferenceright))
+		print ("Number of selected RIGHT primers", len(newrightprimers))
 		# if direction is right, write out the primer and then stop
 		if primer_direction == "single":
 			outfile = open(out, 'w') # output file
@@ -895,7 +893,7 @@ def main():
 			for pr in alldifferenceright:
 				outfile.write("\t".join([pr.formatprimer(), str(pr.difsite), str(pr.difsite4), pr.overlap]) + "\n")
 			outfile.close()
-			print "\n\nPrimer design is finished!\n\n"
+			print ("\n\nPrimer design is finished!\n\n")
 			return 0
 		#############################
 		# STEP 6: Select Primer Pairs
@@ -914,7 +912,7 @@ def main():
 			primerpairs = testpair(nodiffleft, alldifferenceright, primer3_param, primerpairs)
 		# check to see whether no good primer pairs found
 		if not primerpairs:
-			print "\nNo GOOD primers found!"
+			print ("\nNo GOOD primers found!")
 			sys.exit(1)
 
 	#############################
@@ -923,7 +921,7 @@ def main():
 	prepare_primerpair_check_input(primerpairs, primer3_param, tempin)
 	tempout = "temp_primer_pair_test_out_" + groupname + ".txt"
 	p3cmd = primer3_path + " -default_version=2 -output=" + " ".join([tempout, tempin])
-	print "Primer3 command 2nd time: ", p3cmd
+	print ("Primer3 command 2nd time: ", p3cmd)
 	call(p3cmd, shell=True)
 
 	# parse primer 3 primer check output
@@ -964,7 +962,7 @@ def main():
 
 	outfile.close()
 
-	print "\n\nPrimer design is finished!\n\n"
+	print ("\n\nPrimer design is finished!\n\n")
 	## remove all tempotary files
 	#call("rm temp_*", shell=True)
 	return 0
